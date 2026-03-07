@@ -1,0 +1,159 @@
+/**
+ * @module style.css
+ * @description UI Architecture contendo Z-Stacking reverso, HUD de Game Engine e Book UI.
+ * High-Key Edition (Branco e Rosa Pastel).
+ */
+
+:root {
+    --couro-dark: #2c1a11;
+    --texto-claro: #f5f5f7;
+    --texto-escuro: #2c2c2c; 
+    --anim-curve: cubic-bezier(0.23, 1, 0.32, 1);
+    --borda-ouro: #c5a059;
+    --pagina-stack: #fffaf0; 
+    --overlay-alpha: rgba(0, 0, 0, 0.2); 
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body, html {
+    width: 100vw; height: 100vh; color: var(--texto-claro); font-family: 'Lora', serif;
+    overflow: hidden; -webkit-font-smoothing: antialiased; background-color: #fff5f7; 
+    user-select: none; -webkit-user-select: none; touch-action: none;
+    cursor: grab; 
+}
+body:active { cursor: grabbing; }
+
+/* WebGL Context */
+#webgl-canvas { position: fixed; inset: 0; z-index: 0; outline: none; }
+
+#cursor-reticle {
+    position: fixed; top: 50%; left: 50%; width: 6px; height: 6px;
+    background: rgba(223, 171, 160, 0.8); /* Rose Gold */
+    border-radius: 50%; transform: translate(-50%, -50%);
+    pointer-events: none; z-index: 1000; transition: transform 0.2s ease, background 0.2s ease;
+}
+#cursor-reticle.active { transform: translate(-50%, -50%) scale(2.5); background: rgba(197, 160, 89, 0.9); }
+
+#interaction-prompt {
+    position: fixed; bottom: 15%; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: rgba(223, 171, 160, 0.95); /* Rose Gold */
+    color: #fff; padding: 15px 30px;
+    font-family: 'Lora', serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em;
+    border-radius: 6px; font-size: 0.85rem; z-index: 50000; cursor: pointer;
+    box-shadow: 0 10px 30px rgba(223, 171, 160, 0.4); opacity: 0; pointer-events: none; visibility: hidden;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+#interaction-prompt.visible { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0); pointer-events: auto; }
+#interaction-prompt:hover { background: rgba(255, 209, 217, 1); color: #1a110b; transform: translateX(-50%) translateY(-2px) scale(1.05); }
+
+/* Virtual Joystick (Mobile) */
+#virtual-joystick {
+    position: fixed; bottom: 35px; left: 35px; width: 130px; height: 130px;
+    z-index: 50000; touch-action: none; display: none; 
+}
+@media (pointer: coarse) {
+    #virtual-joystick { display: block; }
+    #cursor-reticle { display: none; } 
+}
+.joystick-base {
+    position: absolute; inset: 0; background: rgba(255, 255, 255, 0.2);
+    border: 2px solid rgba(223, 171, 160, 0.5); border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px);
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+.joystick-stick {
+    width: 55px; height: 55px; background: rgba(223, 171, 160, 0.8);
+    border-radius: 50%; box-shadow: 0 0 15px rgba(223, 171, 160, 0.4);
+    position: absolute; transform: translate(0px, 0px); pointer-events: none;
+    transition: background 0.2s ease; will-change: transform;
+}
+.joystick-base.active { border-color: rgba(223, 171, 160, 0.8); background: rgba(255, 255, 255, 0.4); }
+.joystick-base.active .joystick-stick { background: rgba(197, 160, 89, 0.9); }
+
+/* Global Illumination Blocker (High-Key / Claro) */
+#room-darkness-overlay {
+    position: fixed; inset: 0; z-index: 999999; background-color: rgba(255, 255, 255, 0.98); 
+    display: flex; align-items: flex-start; justify-content: center;
+    backdrop-filter: blur(10px); transition: opacity 2.5s ease-in-out, background-color 1s ease, backdrop-filter 2s ease;
+}
+#room-darkness-overlay.lit { opacity: 0; pointer-events: none; backdrop-filter: blur(0px); }
+
+.lamp-switch-wrapper { display: flex; flex-direction: column; align-items: center; cursor: pointer; transform-origin: top center; animation: subtleSwing 4s ease-in-out infinite alternate; padding: 0 40px 40px 40px; }
+.pull-cord { width: 2px; height: 180px; background: linear-gradient(to bottom, #dfaba0 0%, #c5a059 100%); box-shadow: 0 0 10px rgba(223, 171, 160, 0.5); transition: height 0.2s ease; }
+.pull-ring { width: 24px; height: 24px; border: 3px solid #dfaba0; border-radius: 50%; box-shadow: 0 0 15px rgba(223, 171, 160, 0.6), inset 0 0 5px rgba(223, 171, 160, 0.3); background: transparent; transition: transform 0.2s ease; }
+.pull-hint { margin-top: 25px; font-family: 'Lora', serif; font-size: 0.75rem; color: #dfaba0; text-transform: uppercase; letter-spacing: 0.2em; opacity: 0.8; animation: fadeHint 2s infinite alternate; }
+
+.lamp-switch-wrapper:active .pull-cord { height: 200px; }
+.lamp-switch-wrapper:active .pull-ring { transform: scale(0.9); }
+@keyframes subtleSwing { 0% { transform: rotate(-3deg); } 100% { transform: rotate(3deg); } }
+
+/* Module Isolation */
+.isolated-module { position: fixed; inset: 0; z-index: 99900; background: #000; opacity: 0; pointer-events: none; visibility: hidden; transition: opacity 1.2s ease-in-out, visibility 1.2s; cursor: default; }
+.isolated-module.active { opacity: 1; pointer-events: auto; visibility: visible; }
+.module-close-btn { position: absolute; top: 30px; left: 30px; z-index: 100000; background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 10px 20px; font-family: 'Lora', serif; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.1em; border-radius: 4px; cursor: pointer; backdrop-filter: blur(5px); transition: background 0.3s ease; }
+.module-close-btn:hover { background: rgba(223, 171, 160, 0.4); border-color: #dfaba0; }
+
+/* Book UI (Legacy 2D Code) */
+#book-container { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 10; }
+.van-gogh-background { position: absolute; inset: -5%; z-index: 1; pointer-events: none; }
+.van-gogh-image { width: 100%; height: 100%; object-fit: cover; animation: subtlePan 30s ease-in-out infinite alternate; will-change: transform; }
+.van-gogh-overlay { position: absolute; inset: 0; background-color: var(--overlay-alpha); z-index: 2; }
+.paper-texture { position: absolute; inset: 0; background-image: url('https://www.transparenttextures.com/patterns/paper-fibers.png'); opacity: 0.15; pointer-events: none; z-index: 100; }
+#star-particles { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 4; opacity: 0.65; }
+
+.page { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; perspective: 2500px; padding: 20px; z-index: 1; opacity: 0; pointer-events: none; transition: opacity 0.8s ease; }
+.page.hero { opacity: 1; z-index: 20; pointer-events: none; }
+.page.active { opacity: 1; z-index: 30; pointer-events: none; }
+
+.book-cover-wrapper { width: min(82vw, 370px); height: min(74vh, 530px); position: relative; transform-style: preserve-3d; transition: transform 1.2s var(--anim-curve); box-shadow: 30px 30px 70px rgba(0,0,0,0.65); border-radius: 4px 12px 12px 4px; will-change: transform; cursor: pointer; pointer-events: auto; }
+.book-cover-front { position: absolute; inset: 0; background-color: var(--couro-dark); background-image: linear-gradient(to right, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0) 8%), url('./imagens/yasmin1.png'); background-size: cover; background-position: center; border: 3px solid var(--borda-ouro); border-radius: 4px 12px 12px 4px; z-index: 5; transform: translateZ(1px); backface-visibility: hidden; }
+.book-cover-inside { position: absolute; inset: -3px; background-color: #3e2723; background-image: url('https://www.transparenttextures.com/patterns/paper-fibers.png'); border: 3px solid var(--borda-ouro); border-radius: 12px 4px 4px 12px; box-shadow: inset -15px 0 30px rgba(0,0,0,0.8); transform: translateZ(-2px) rotateY(180deg); z-index: 4; backface-visibility: hidden; }
+.book-spine { position: absolute; left: 0; top: 0; bottom: 0; width: 25px; background: linear-gradient(to right, #1f120b 0%, #2a170f 55%, #4a2d1d 100%); box-shadow: inset -5px 0 15px rgba(0,0,0,0.4); transform: translateX(-20px) rotateY(-95deg); transform-origin: right; border-radius: 4px 0 0 4px; z-index: 3; }
+.book-cover-wrapper::after { content: ''; position: absolute; top: 5px; bottom: 5px; right: 5px; width: 100%; background-color: var(--pagina-stack); background-image: repeating-linear-gradient(transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px); border-right: 4px solid var(--borda-ouro); border-radius: 0 10px 10px 0; transform: translateZ(-5px) translateX(-5px) rotateY(1deg); z-index: 1; }
+
+.content { width: min(82vw, 370px); height: min(74vh, 530px); background-color: var(--pagina-stack); background-image: linear-gradient(90deg, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.02) 8%, transparent 15%), url('https://www.transparenttextures.com/patterns/paper-fibers.png'); border-radius: 4px 12px 12px 4px; box-shadow: inset 15px 0 20px -10px rgba(0,0,0,0.15), 15px 15px 40px rgba(0,0,0,0.5); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 25px; gap: 15px; opacity: 0; transform: rotateY(15deg) translateX(30px); transform-origin: left center; transition: opacity 0.8s ease, transform 0.8s var(--anim-curve); pointer-events: none; cursor: pointer; position: relative; }
+.page.active .content { opacity: 1; transform: rotateY(0deg) translateX(0); pointer-events: auto; }
+
+.content.editorial-layout { padding: 45px 30px; justify-content: center; }
+.photo-wrapper { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; margin: 0 auto; width: 100%; }
+.editorial-layout .photo-frame { width: min(55vw, 190px); aspect-ratio: 4 / 5; border: 8px solid #ffffff; border-bottom-width: 25px; box-shadow: 0 6px 15px rgba(0,0,0,0.2); border-radius: 2px; margin: 0 auto; position: relative; transition: transform 0.3s ease, box-shadow 0.3s ease; }
+.photo-frame.interactive-frame { cursor: pointer; }
+.photo-frame.interactive-frame:hover { transform: scale(1.03); box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
+.click-hint { position: absolute; bottom: -20px; left: 50%; transform: translateX(-50%); font-family: 'Lora', serif; font-size: 0.6rem; color: #a1a1a1; text-transform: uppercase; letter-spacing: 0.1em; opacity: 0; transition: opacity 0.3s ease; }
+.photo-frame.interactive-frame:hover .click-hint { opacity: 1; }
+.chapter-title { font-family: 'Lora', serif; font-size: 0.75rem; letter-spacing: 0.15em; text-transform: uppercase; color: #5a4033; text-align: center; width: 80%; margin: 0 auto; }
+.page-ornament { width: 50px; height: 1px; background-color: rgba(90, 64, 51, 0.4); margin: 10px auto 20px auto; position: relative; }
+.page-ornament::before { content: '✦'; position: absolute; top: -11px; left: 50%; transform: translateX(-50%); font-size: 14px; color: rgba(90, 64, 51, 0.7); background: var(--pagina-stack); padding: 0 6px; }
+.page-number { position: absolute; bottom: 20px; font-family: 'Lora', serif; font-size: 0.75rem; color: rgba(90, 64, 51, 0.6); font-style: italic; }
+.safe-zone { width: 100%; position: relative; margin-top: 5px; padding: 0 10px; }
+.magic-text { font-size: clamp(0.9rem, 1vw + 0.85rem, 1.1rem); line-height: 1.6; color: var(--texto-escuro); font-style: italic; font-family: 'Playfair Display', serif; text-align: center; }
+.magic-text.verse { margin-bottom: 15px; }
+.editorial-layout .magic-text { font-weight: 400; color: var(--texto-escuro); }
+.editorial-layout .magic-text:first-of-type::first-letter { font-size: 2.2em; font-style: normal; color: #8b6d43; line-height: 0.8; float: left; margin-right: 6px; margin-top: 4px; text-shadow: none; }
+.photo-frame { width: min(60vw, 220px); aspect-ratio: 3 / 4; background-size: cover; background-position: center; border: 8px solid #ffffff; box-shadow: 0 6px 15px rgba(0,0,0,0.2); margin: 0 auto 15px auto; border-radius: 2px; }
+
+/* Galaxy Map Engine */
+#immersion-layer { position: absolute; inset: 0; z-index: 9999; overflow: hidden; background: radial-gradient(circle at center, #0a0e19 0%, #000000 100%); pointer-events: none; opacity: 0; transition: opacity 1.5s ease; cursor: grab; }
+#immersion-layer.active { pointer-events: auto; opacity: 1; }
+#galaxy-map { position: absolute; width: 300vw; height: 300vh; top: -100vh; left: -100vw; will-change: transform; }
+#galaxy-map:active { cursor: grabbing; }
+#static-stars-layer { position: absolute; width: 100%; height: 100%; border-radius: 50%; pointer-events: none; }
+.interactive-star { position: absolute; width: 80px; height: 80px; transform: translate(-50%, -50%); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 20; pointer-events: auto; -webkit-tap-highlight-color: transparent; }
+.star-core { width: 6px; height: 6px; background: #fff; border-radius: 50%; animation: pulsarCore 1.5s ease-in-out infinite alternate; }
+.star-halo { position: absolute; width: 100%; height: 100%; border-radius: 50%; background: radial-gradient(circle, rgba(197, 160, 89, 0.8) 0%, transparent 60%); animation: pulsarHalo 2s ease-in-out infinite alternate; pointer-events: none; }
+@keyframes pulsarCore { 0% { transform: scale(0.6); opacity: 0.3; box-shadow: 0 0 5px 1px rgba(255,255,255,0.5); } 100% { transform: scale(1.6); opacity: 1; box-shadow: 0 0 15px 4px #fff, 0 0 30px 10px var(--borda-ouro); } }
+@keyframes pulsarHalo { 0% { transform: scale(0.6); opacity: 0.1; } 100% { transform: scale(1.3); opacity: 0.9; } }
+.interactive-star:hover .star-halo { transform: scale(1.5); animation-play-state: paused; opacity: 1; }
+#hud-message-overlay { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(8px); display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.6s ease; z-index: 50; padding: 30px; cursor: default; }
+#hud-message-overlay.visible { opacity: 1; pointer-events: auto; }
+#hud-text { font-family: 'Playfair Display', serif; font-size: clamp(1.4rem, 2.5vw + 1rem, 2.2rem); color: #f2e3c6; line-height: 1.6; font-style: italic; text-align: center; max-width: 800px; text-shadow: 0 0 20px rgba(242, 227, 198, 0.3); transform: translateY(20px); transition: transform 0.6s ease; }
+#hud-message-overlay.visible #hud-text { transform: translateY(0); }
+.hud-hint { margin-top: 40px; font-family: 'Lora', serif; font-size: 0.75rem; color: rgba(242, 227, 198, 0.6); text-transform: uppercase; letter-spacing: 0.25em; animation: fadeHint 3s ease-in-out infinite alternate; }
+@keyframes fadeHint { 0% { opacity: 0.2; } 100% { opacity: 0.8; } }
+#close-immersion { position: absolute; bottom: 5%; left: 50%; transform: translateX(-50%); z-index: 100; background: rgba(10, 14, 25, 0.8); border: 1px solid rgba(242, 227, 198, 0.3); color: #f2e3c6; font-family: 'Lora', serif; text-transform: uppercase; letter-spacing: 0.2em; font-size: 0.7rem; padding: 12px 30px; border-radius: 4px; cursor: pointer; transition: all 0.4s ease; backdrop-filter: blur(4px); }
+#close-immersion:hover { background: rgba(242, 227, 198, 0.2); border-color: rgba(242, 227, 198, 0.8); }
+
+@media (max-width: 767px) {
+    .book-cover-wrapper, .content { width: min(86vw, 350px); height: min(70vh, 500px); }
+}

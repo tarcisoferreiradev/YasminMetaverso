@@ -250,8 +250,25 @@ tvBezel.position.set(0, 1.6, -0.02); tvBezel.castShadow = true; tvGroup.add(tvBe
 const videoElement = document.getElementById('tv-video');
 let videoTexture = null;
 if(videoElement) {
+    videoElement.muted = true;
+    videoElement.preload = 'auto';
+    videoElement.playsInline = true;
+    videoElement.load();
     videoTexture = new THREE.VideoTexture(videoElement);
     videoTexture.colorSpace = THREE.SRGBColorSpace;
+}
+
+function syncTvMuteLabel() {
+    if (!btnTvMute || !videoElement) return;
+    btnTvMute.innerText = videoElement.muted ? "[ M ] Desmutar" : "[ M ] Mutar Som";
+}
+
+function requestTvPlayback() {
+    if (!videoElement) return;
+    const playPromise = videoElement.play();
+    if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch(err => console.warn('Reproducao da TV bloqueada:', err));
+    }
 }
 
 const tvScreenMat = new THREE.MeshStandardMaterial({ color: 0xffffff, map: videoTexture, emissive: 0xffffff, emissiveMap: videoTexture, emissiveIntensity: 0.8, roughness: 0.1, metalness: 0.8 });
@@ -280,6 +297,7 @@ scene.add(screenGlow, screenGlow.target);
 // 5. CANTINHO DA LEITURA
 // ==========================================
 const textureLoader = new THREE.TextureLoader();
+const assetBasePath = './yasmin-bday/imagens';
 
 const shelfGeo = new THREE.BoxGeometry(0.8, 0.1, 2.5); 
 const shelfMat = new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.8, metalness: 0.1 });
@@ -288,7 +306,7 @@ shelf.position.set(-3.6, 0.6, -0.5);
 shelf.castShadow = true; shelf.receiveShadow = true;
 scene.add(shelf);
 
-const coverTexture = textureLoader.load('./imagens/yasmin1.png');
+const coverTexture = textureLoader.load(`${assetBasePath}/yasmin1.png`);
 coverTexture.colorSpace = THREE.SRGBColorSpace; 
 coverTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
 const pageMat = new THREE.MeshStandardMaterial({ color: 0xf5ecd5, roughness: 0.9 }); 
@@ -340,19 +358,19 @@ function createPictureFrame(imagePath, width, height) {
     return frameGroup;
 }
 
-const frameMain = createPictureFrame('./imagens/yasmin2.jpeg', 1.8, 1.4);
+const frameMain = createPictureFrame(`${assetBasePath}/yasmin2.jpeg`, 1.8, 1.4);
 frameMain.position.set(-3.95, 2.4, -0.5); frameMain.rotation.y = Math.PI / 2; scene.add(frameMain);
 
-const frameBed = createPictureFrame('./imagens/yasmin3.jpeg', 0.9, 1.2);
+const frameBed = createPictureFrame(`${assetBasePath}/yasmin3.jpeg`, 0.9, 1.2);
 frameBed.position.set(0, 2.2, 3.95); frameBed.rotation.y = Math.PI; scene.add(frameBed);
 
-const frame4 = createPictureFrame('./imagens/yasmin4.jpeg', 0.9, 1.2);
+const frame4 = createPictureFrame(`${assetBasePath}/yasmin4.jpeg`, 0.9, 1.2);
 frame4.position.set(3.95, 2.0, 1.2); frame4.rotation.y = -Math.PI / 2; scene.add(frame4);
 
-const frame5 = createPictureFrame('./imagens/yasmin5.jpeg', 0.9, 1.2);
+const frame5 = createPictureFrame(`${assetBasePath}/yasmin5.jpeg`, 0.9, 1.2);
 frame5.position.set(3.95, 2.0, 0); frame5.rotation.y = -Math.PI / 2; scene.add(frame5);
 
-const frame6 = createPictureFrame('./imagens/yasmin6.jpeg', 0.9, 1.2);
+const frame6 = createPictureFrame(`${assetBasePath}/yasmin6.jpeg`, 0.9, 1.2);
 frame6.position.set(3.95, 2.0, -1.2); frame6.rotation.y = -Math.PI / 2; scene.add(frame6);
 
 
@@ -591,7 +609,7 @@ if (lampSwitch) {
         if (e) { e.preventDefault(); e.stopPropagation(); } 
         if (isRoomLit) return;
         isRoomLit = true; 
-        if(videoElement) videoElement.play().catch(err => console.warn("Autoplay bloqueado:", err));
+        requestTvPlayback();
         gsap.to(renderer, { toneMappingExposure: 1.28, duration: 1.6 });
         gsap.to(ambientLight, { intensity: 0.42, duration: 1.5 }); 
         gsap.to(hemisphereLight, { intensity: 0.52, duration: 1.5 });
@@ -607,6 +625,8 @@ if (lampSwitch) {
     lampSwitch.addEventListener('click', triggerRoomLight);
     lampSwitch.addEventListener('pointerdown', triggerRoomLight);
 }
+
+syncTvMuteLabel();
 
 function triggerInteraction() {
     if(!isNearBook || activeModule === 'book') return;
@@ -631,8 +651,8 @@ if(btnCloseBook) {
     });
 }
 
-if(btnTvPlay && videoElement) btnTvPlay.addEventListener('click', () => { if (videoElement.paused) videoElement.play(); else videoElement.pause(); });
-if(btnTvMute && videoElement) btnTvMute.addEventListener('click', () => { videoElement.muted = !videoElement.muted; btnTvMute.innerText = videoElement.muted ? "[ M ] Desmutar" : "[ M ] Mutar Som"; });
+if(btnTvPlay && videoElement) btnTvPlay.addEventListener('click', () => { if (videoElement.paused) requestTvPlayback(); else videoElement.pause(); });
+if(btnTvMute && videoElement) btnTvMute.addEventListener('click', () => { videoElement.muted = !videoElement.muted; syncTvMuteLabel(); });
 
 window.addEventListener('keydown', (e) => { 
     const k = e.key.toLowerCase();
@@ -645,8 +665,8 @@ window.addEventListener('keydown', (e) => {
         }
     }
     if (isNearTV && activeModule === null && videoElement) {
-        if (k === 'p') { if (videoElement.paused) videoElement.play(); else videoElement.pause(); }
-        if (k === 'm') { videoElement.muted = !videoElement.muted; btnTvMute.innerText = videoElement.muted ? "[ M ] Desmutar" : "[ M ] Mutar Som"; }
+        if (k === 'p') { if (videoElement.paused) requestTvPlayback(); else videoElement.pause(); }
+        if (k === 'm') { videoElement.muted = !videoElement.muted; syncTvMuteLabel(); }
     }
 });
 

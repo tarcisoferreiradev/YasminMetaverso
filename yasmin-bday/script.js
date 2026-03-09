@@ -541,7 +541,7 @@ const keys = { w: false, a: false, s: false, d: false };
 window.addEventListener('keydown', (e) => { const key = e.key.toLowerCase(); if(keys.hasOwnProperty(key)) keys[key] = true; });
 window.addEventListener('keyup', (e) => { const key = e.key.toLowerCase(); if(keys.hasOwnProperty(key)) keys[key] = false; });
 
-const joyZone = document.getElementById('virtual-joystick'); const joyBase = document.getElementById('joy-base'); const joyStick = document.getElementById('joy-stick');
+const joyZone = document.getElementById('virtual-joystick'); const joyBase = document.getElementById('joy-base'); const joyStick = document.getElementById('joy-stick'); const mobileFullscreenToggle = document.getElementById('mobile-fullscreen-toggle');
 let joyActive = false; const joyVector = new THREE.Vector2(0, 0); 
 if (joyZone) {
     joyZone.addEventListener('pointerdown', (e) => { e.stopPropagation(); joyActive = true; joyBase.classList.add('active'); updateJoyVector(e); });
@@ -557,7 +557,7 @@ function updateJoyVector(e) {
 
 let isDraggingCam = false; let yaw = 0; let pitch = 0; let lastTouchX = 0; let lastTouchY = 0; const lookSensitivity = 0.003;
 window.addEventListener('pointerdown', (e) => {
-    if (e.target.closest('#virtual-joystick') || e.target.closest('.isolated-module') || e.target.closest('.action-prompt') || e.target.closest('.tv-ctrl-btn') || e.target.closest('#lamp-switch')) return;
+    if (e.target.closest('#virtual-joystick') || e.target.closest('#mobile-fullscreen-toggle') || e.target.closest('.isolated-module') || e.target.closest('.action-prompt') || e.target.closest('.tv-ctrl-btn') || e.target.closest('#lamp-switch')) return;
     isDraggingCam = true; lastTouchX = e.clientX; lastTouchY = e.clientY;
 });
 window.addEventListener('pointermove', (e) => {
@@ -581,6 +581,54 @@ const cursorReticle = document.getElementById('cursor-reticle');
 const tvPrompt = document.getElementById('tv-interaction-prompt');
 const btnTvPlay = document.getElementById('btn-tv-play');
 const btnTvMute = document.getElementById('btn-tv-mute');
+
+function getFullscreenElement() {
+    return document.fullscreenElement || document.webkitFullscreenElement || null;
+}
+
+function updateFullscreenButton() {
+    if (!mobileFullscreenToggle) return;
+
+    const fullscreenSupported = Boolean(
+        document.fullscreenEnabled ||
+        document.webkitFullscreenEnabled ||
+        document.documentElement.requestFullscreen ||
+        document.documentElement.webkitRequestFullscreen
+    );
+
+    if (!isMobileDevice || !fullscreenSupported) {
+        mobileFullscreenToggle.classList.add('is-hidden');
+        mobileFullscreenToggle.setAttribute('aria-hidden', 'true');
+        return;
+    }
+
+    mobileFullscreenToggle.classList.remove('is-hidden');
+    mobileFullscreenToggle.setAttribute('aria-hidden', 'false');
+    mobileFullscreenToggle.textContent = getFullscreenElement() ? 'Sair da Tela Cheia' : 'Tela Cheia';
+}
+
+async function toggleFullscreenMode(event) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+
+    const rootElement = document.documentElement;
+    try {
+        if (getFullscreenElement()) {
+            if (document.exitFullscreen) await document.exitFullscreen();
+            else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+            return;
+        }
+
+        if (rootElement.requestFullscreen) await rootElement.requestFullscreen();
+        else if (rootElement.webkitRequestFullscreen) rootElement.webkitRequestFullscreen();
+    } catch (error) {
+        console.warn('Tela cheia indisponivel neste navegador:', error);
+    } finally {
+        updateFullscreenButton();
+    }
+}
 
 let isRoomLit = false; let activeModule = null; 
 let isNearBook = false; let isNearTV = false;
@@ -631,6 +679,11 @@ if(btnCloseBook) {
 
 if(btnTvPlay && videoElement) btnTvPlay.addEventListener('click', () => { if (videoElement.paused) requestTvPlayback(); else videoElement.pause(); });
 if(btnTvMute && videoElement) btnTvMute.addEventListener('click', () => { videoElement.muted = !videoElement.muted; syncTvMuteLabel(); });
+if (mobileFullscreenToggle) mobileFullscreenToggle.addEventListener('click', toggleFullscreenMode);
+
+document.addEventListener('fullscreenchange', updateFullscreenButton);
+document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
+updateFullscreenButton();
 
 window.addEventListener('keydown', (e) => { 
     const k = e.key.toLowerCase();

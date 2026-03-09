@@ -220,3 +220,51 @@ body::after {
     .book-cover-wrapper, .content { width: min(86vw, 350px); height: min(70vh, 500px); }
     #tv-interaction-prompt { flex-direction: column; gap: 10px; bottom: 10%; }
 }
+
+@media (pointer: coarse), (max-width: 900px) {
+    body::before,
+    body::after {
+        display: none;
+    }
+
+    #webgl-canvas {
+        filter: none;
+    }
+
+    #interaction-prompt,
+    .tv-ctrl-btn,
+    .joystick-base,
+    #room-darkness-overlay,
+    .module-close-btn,
+    #hud-message-overlay,
+    #close-immersion {
+        backdrop-filter: none;
+    }
+
+    #interaction-prompt,
+    .tv-ctrl-btn,
+    .book-cover-wrapper,
+    .content,
+    .editorial-layout .photo-frame,
+    .photo-frame,
+    .pull-cord,
+    .pull-ring,
+    #hud-text {
+        box-shadow: none;
+        text-shadow: none;
+    }
+
+    .lamp-switch-wrapper,
+    .van-gogh-image,
+    .interactive-star,
+    .star-core,
+    .star-halo {
+        animation: none;
+    }
+
+    #star-particles,
+    .paper-texture,
+    .interactive-star .star-halo {
+        display: none;
+    }
+}

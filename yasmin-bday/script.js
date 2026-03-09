@@ -10,19 +10,23 @@ import gsap from 'gsap';
 // ==========================================
 // 1. ENGINE CORE: RENDERER & SCENE
 // ==========================================
+const isMobileDevice = window.matchMedia('(pointer: coarse), (max-width: 900px)').matches;
+const textureSize = isMobileDevice ? 512 : 1024;
+const textureAnisotropy = isMobileDevice ? 1 : 4;
+
 const canvas = document.getElementById('webgl-canvas');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: !isMobileDevice, powerPreference: 'high-performance' });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.2));
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.setPixelRatio(1);
+renderer.shadowMap.enabled = false;
+renderer.shadowMap.type = THREE.BasicShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.15;
+renderer.toneMapping = THREE.NoToneMapping;
+renderer.toneMappingExposure = 1;
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0d1017);
-scene.fog = new THREE.FogExp2(0x0d1017, 0.022);
+scene.background = new THREE.Color(0x141924);
+scene.fog = new THREE.FogExp2(0x141924, 0.016);
 
 const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100); 
 camera.rotation.order = 'YXZ'; 
@@ -36,29 +40,12 @@ camera.add(audioListener);
 const ambientLight = new THREE.AmbientLight(0xffffff, 0); 
 scene.add(ambientLight);
 
-const hemisphereLight = new THREE.HemisphereLight(0xc6dcff, 0x23160f, 0);
-scene.add(hemisphereLight);
-
 const pointLight = new THREE.PointLight(0xffeedd, 0, 15); 
 pointLight.position.set(0, 4, 0); 
-pointLight.castShadow = true; 
-pointLight.shadow.bias = -0.001; 
-pointLight.shadow.mapSize.set(2048, 2048);
+pointLight.castShadow = false; 
 scene.add(pointLight);
 
-const moonLight = new THREE.SpotLight(0x9dc1ff, 0, 18, Math.PI / 7, 0.45, 1.2);
-moonLight.position.set(3.4, 4.4, -1.8);
-moonLight.target.position.set(0.8, 1.2, -0.4);
-moonLight.castShadow = true;
-moonLight.shadow.bias = -0.0005;
-moonLight.shadow.mapSize.set(2048, 2048);
-scene.add(moonLight, moonLight.target);
-
-const rimLight = new THREE.PointLight(0xff8e5c, 0, 10, 2);
-rimLight.position.set(-2.8, 2.3, 3.1);
-scene.add(rimLight);
-
-function createProceduralTexture(drawFn, width = 1024, height = 1024) {
+function createProceduralTexture(drawFn, width = textureSize, height = textureSize) {
     const textureCanvas = document.createElement('canvas');
     textureCanvas.width = width;
     textureCanvas.height = height;
@@ -66,7 +53,7 @@ function createProceduralTexture(drawFn, width = 1024, height = 1024) {
     drawFn(context, width, height);
     const texture = new THREE.CanvasTexture(textureCanvas);
     texture.colorSpace = THREE.SRGBColorSpace;
-    texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    texture.anisotropy = Math.min(renderer.capabilities.getMaxAnisotropy(), textureAnisotropy);
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.RepeatWrapping;
     return texture;
@@ -119,22 +106,22 @@ floorTexture.repeat.set(2.4, 2.4);
 
 const wallTexture = createProceduralTexture((context, width, height) => {
     const gradient = context.createLinearGradient(0, 0, width, height);
-    gradient.addColorStop(0, '#d9c9b7');
-    gradient.addColorStop(0.5, '#b79f8b');
-    gradient.addColorStop(1, '#8d7966');
+    gradient.addColorStop(0, '#ddd0c1');
+    gradient.addColorStop(0.5, '#c7b29e');
+    gradient.addColorStop(1, '#a58d77');
     context.fillStyle = gradient;
     context.fillRect(0, 0, width, height);
 
-    context.fillStyle = 'rgba(255, 255, 255, 0.08)';
-    for (let blotch = 0; blotch < 80; blotch += 1) {
+    context.fillStyle = 'rgba(255, 255, 255, 0.035)';
+    for (let blotch = 0; blotch < 34; blotch += 1) {
         context.beginPath();
-        context.ellipse(Math.random() * width, Math.random() * height, Math.random() * 70 + 20, Math.random() * 50 + 12, Math.random() * Math.PI, 0, Math.PI * 2);
+        context.ellipse(Math.random() * width, Math.random() * height, Math.random() * 120 + 40, Math.random() * 90 + 24, Math.random() * Math.PI, 0, Math.PI * 2);
         context.fill();
     }
 
-    context.strokeStyle = 'rgba(70, 45, 28, 0.05)';
-    context.lineWidth = 3;
-    for (let crack = 0; crack < 45; crack += 1) {
+    context.strokeStyle = 'rgba(95, 70, 50, 0.025)';
+    context.lineWidth = 2;
+    for (let crack = 0; crack < 18; crack += 1) {
         const x = Math.random() * width;
         const y = Math.random() * height;
         context.beginPath();
@@ -143,9 +130,9 @@ const wallTexture = createProceduralTexture((context, width, height) => {
         context.stroke();
     }
 
-    addSpeckle(context, width, height, 900, 0.04);
+    addSpeckle(context, width, height, 500, 0.018);
 });
-wallTexture.repeat.set(1.5, 1.5);
+wallTexture.repeat.set(0.9, 0.9);
 
 const ceilingTexture = createProceduralTexture((context, width, height) => {
     const gradient = context.createRadialGradient(width * 0.5, height * 0.45, 40, width * 0.5, height * 0.5, width * 0.7);
@@ -182,7 +169,7 @@ ceiling.rotation.x = Math.PI / 2; ceiling.position.y = roomSize.height; scene.ad
 
 const frontBackWallMat = new THREE.MeshStandardMaterial({ map: wallTexture, color: 0xe4d6c8, roughness: 0.88, side: THREE.DoubleSide });
 const leftRightWallMat = new THREE.MeshStandardMaterial({ map: wallTexture.clone(), color: 0xc9d2d6, roughness: 0.9, side: THREE.DoubleSide });
-leftRightWallMat.map.repeat.set(1.2, 1.6);
+leftRightWallMat.map.repeat.set(0.95, 1.05);
 
 const wallsGroup = new THREE.Group();
 const wallFront = new THREE.Mesh(new THREE.PlaneGeometry(roomSize.width, roomSize.height), frontBackWallMat);
@@ -271,7 +258,7 @@ function requestTvPlayback() {
     }
 }
 
-const tvScreenMat = new THREE.MeshStandardMaterial({ color: 0xffffff, map: videoTexture, emissive: 0xffffff, emissiveMap: videoTexture, emissiveIntensity: 0.8, roughness: 0.1, metalness: 0.8 });
+const tvScreenMat = new THREE.MeshStandardMaterial({ color: 0xffffff, map: videoTexture, roughness: 0.2, metalness: 0.15 });
 const tvScreen = new THREE.Mesh(new THREE.BoxGeometry(2.8, 1.6, 0.02), tvScreenMat); 
 tvScreen.position.set(0, 1.6, 0.04); tvGroup.add(tvScreen);
 
@@ -282,15 +269,8 @@ if(videoElement) {
     tvScreen.add(tvAudio);
 }
 
-const tvLight = new THREE.PointLight(0x2244ff, 0, 5); 
-tvLight.position.set(0, 1.6, 0.5); tvGroup.add(tvLight);
 tvGroup.position.set(0, 0, -3.4); 
 scene.add(tvGroup);
-
-const screenGlow = new THREE.SpotLight(0x6fa2ff, 0, 11, Math.PI / 5, 0.55, 1.6);
-screenGlow.position.set(0, 1.7, -2.65);
-screenGlow.target.position.set(0, 1.4, -0.3);
-scene.add(screenGlow, screenGlow.target);
 
 
 // ==========================================
@@ -308,7 +288,7 @@ scene.add(shelf);
 
 const coverTexture = textureLoader.load(`${assetBasePath}/yasmin1.png`);
 coverTexture.colorSpace = THREE.SRGBColorSpace; 
-coverTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+coverTexture.anisotropy = Math.min(renderer.capabilities.getMaxAnisotropy(), textureAnisotropy);
 const pageMat = new THREE.MeshStandardMaterial({ color: 0xf5ecd5, roughness: 0.9 }); 
 const spineMat = new THREE.MeshStandardMaterial({ color: 0x3d2314, roughness: 0.8 }); 
 const coverMat = new THREE.MeshStandardMaterial({ map: coverTexture, roughness: 0.4, metalness: 0.1, emissive: 0x4a3219, emissiveIntensity: 0.2 }); 
@@ -333,7 +313,7 @@ scene.add(lampGroup);
 
 const lampLight = new THREE.PointLight(0xffaa44, 0, 7, 1.5); 
 lampLight.position.set(-3.6, 1.0, 0.4); 
-lampLight.castShadow = true; lampLight.shadow.bias = -0.002; lampLight.shadow.mapSize.set(1024, 1024);
+lampLight.castShadow = false;
 scene.add(lampLight);
 
 // ==========================================
@@ -350,7 +330,7 @@ function createPictureFrame(imagePath, width, height) {
     frameGroup.add(frameMesh);
     const photoTex = textureLoader.load(imagePath);
     photoTex.colorSpace = THREE.SRGBColorSpace;
-    photoTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    photoTex.anisotropy = Math.min(renderer.capabilities.getMaxAnisotropy(), textureAnisotropy);
     const photoMat = new THREE.MeshStandardMaterial({ map: photoTex, roughness: 0.4, metalness: 0.1 });
     const photoMesh = new THREE.Mesh(new THREE.PlaneGeometry(width - 0.1, height - 0.1), photoMat);
     photoMesh.position.z = (frameDepth / 2) + 0.001; 
@@ -428,7 +408,7 @@ scene.add(createConfettiLayer(0xffa6c9, 150)); scene.add(createConfettiLayer(0xf
 
 // --- Balões ---
 const kinematicBalloons = [];
-const balloonGeo = new THREE.SphereGeometry(0.3, 32, 32);
+const balloonGeo = new THREE.SphereGeometry(0.3, isMobileDevice ? 16 : 32, isMobileDevice ? 16 : 32);
 function createBalloon(x, y, z, colorHex) {
     const bGroup = new THREE.Group();
     const bMesh = new THREE.Mesh(balloonGeo, new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.1, metalness: 0.2 }));
@@ -497,10 +477,12 @@ function createNumberCandle(numberStr) {
     flame.position.y = 0.11;
     mesh.add(flame);
 
-    const candleLight = new THREE.PointLight(0xffc36b, 1.1, 1.2, 2);
-    candleLight.position.y = 0.12;
-    candleLights.push(candleLight);
-    mesh.add(candleLight);
+    if (!isMobileDevice) {
+        const candleLight = new THREE.PointLight(0xffc36b, 1.1, 1.2, 2);
+        candleLight.position.y = 0.12;
+        candleLights.push(candleLight);
+        mesh.add(candleLight);
+    }
     return mesh;
 }
 
@@ -610,12 +592,8 @@ if (lampSwitch) {
         if (isRoomLit) return;
         isRoomLit = true; 
         requestTvPlayback();
-        gsap.to(renderer, { toneMappingExposure: 1.28, duration: 1.6 });
-        gsap.to(ambientLight, { intensity: 0.42, duration: 1.5 }); 
-        gsap.to(hemisphereLight, { intensity: 0.52, duration: 1.5 });
-        gsap.to(pointLight, { intensity: 18, duration: 1.5 });
-        gsap.to(moonLight, { intensity: 1.05, duration: 1.7 });
-        gsap.to(rimLight, { intensity: 0.38, duration: 1.7 });
+        gsap.to(ambientLight, { intensity: 0.52, duration: 1.5 }); 
+        gsap.to(pointLight, { intensity: 7, duration: 1.5 });
         if(roomDarkness) {
             roomDarkness.style.opacity = '0'; 
             setTimeout(() => { roomDarkness.classList.add('lit'); }, 1500);
@@ -679,16 +657,12 @@ const moveDirection = new THREE.Vector3(); const forward = new THREE.Vector3(); 
 function animate() {
     requestAnimationFrame(animate);
     const time = clock.getElapsedTime();
-    const screenPulse = videoElement && !videoElement.paused ? 0.75 + Math.sin(time * 7.5) * 0.16 : 0.18;
-
-    tvLight.intensity = isRoomLit ? screenPulse : 0;
-    screenGlow.intensity = isRoomLit ? screenPulse * 0.72 : 0;
-    tvScreenMat.emissiveIntensity = isRoomLit ? 0.92 + Math.sin(time * 6.2) * 0.08 : 0.18;
-    rimLight.intensity = isRoomLit ? 0.38 + Math.sin(time * 0.8) * 0.05 : 0.08;
-    moonLight.intensity = isRoomLit ? 1.05 : 0.22;
-    candleLights.forEach((light, index) => {
-        light.intensity = 0.95 + Math.sin(time * 8 + index * 1.4) * 0.2;
-    });
+    tvScreenMat.needsUpdate = false;
+    if (!isMobileDevice) {
+        candleLights.forEach((light, index) => {
+            light.intensity = 0.95 + Math.sin(time * 8 + index * 1.4) * 0.2;
+        });
+    }
     
     bookMesh.position.y = 0.75 + Math.sin(time * 3) * 0.05;
 
@@ -762,7 +736,12 @@ function animate() {
 }
 animate();
 
-window.addEventListener('resize', () => { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(1);
+});
 
 // ==========================================
 // 10. ISOLATED BOOK LOGIC

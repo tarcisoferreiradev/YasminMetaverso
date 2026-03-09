@@ -20,19 +20,27 @@
 </head>
 <body>
     
+    <video id="tv-video" src="./videos/Looney Tunes.mp4" loop playsinline crossorigin="anonymous" style="display: none;"></video>
+
     <canvas id="webgl-canvas"></canvas>
 
     <div id="room-darkness-overlay">
-        <div class="lamp-switch-wrapper" id="lamp-switch" role="button" aria-label="Acender a luz do quarto">
+        <div class="lamp-switch-wrapper" id="lamp-switch" role="button" aria-label="Acender a luz e ligar a TV">
             <div class="pull-cord"></div>
             <div class="pull-ring"></div>
-            <span class="pull-hint">Puxe para iluminar o ambiente 3D</span>
+            <span class="pull-hint">Puxe para iluminar o ambiente</span>
         </div>
     </div>
 
     <div id="cursor-reticle"></div>
+    
     <div id="interaction-prompt" role="button">
         Pressione [ E ] ou Toque para Ler
+    </div>
+
+    <div id="tv-interaction-prompt">
+        <button id="btn-tv-play" class="tv-ctrl-btn">[ P ] Play / Pause</button>
+        <button id="btn-tv-mute" class="tv-ctrl-btn">[ M ] Mutar Som</button>
     </div>
 
     <div id="virtual-joystick" aria-hidden="true">
@@ -42,14 +50,12 @@
     </div>
 
     <section id="subsystem-book" class="isolated-module" aria-hidden="true">
-        
         <button class="module-close-btn" id="close-book-module" aria-label="Retornar ao Quarto">✕ Voltar para o Quarto</button>
 
         <div class="van-gogh-background">
             <img src="./imagens/estrelas.png" alt="Noite Estrelada" class="van-gogh-image">
             <div class="van-gogh-overlay"></div>
         </div>
-
         <div class="paper-texture"></div>
         <canvas id="star-particles" aria-hidden="true"></canvas>
 
@@ -186,7 +192,6 @@
                     <div class="page-number">10</div>
                 </article>
             </section>
-
         </div>
     </section>
 

@@ -1,7 +1,7 @@
 /**
  * @module style.css
  * @description UI Architecture contendo Z-Stacking reverso, HUD de Game Engine e Book UI.
- * High-Key Edition (Branco e Rosa Pastel).
+ * High-Key Edition (Branco e Rosa Pastel) + TV Media Controls.
  */
 
 :root {
@@ -18,14 +18,41 @@
 
 body, html {
     width: 100vw; height: 100vh; color: var(--texto-claro); font-family: 'Lora', serif;
-    overflow: hidden; -webkit-font-smoothing: antialiased; background-color: #fff5f7; 
+    overflow: hidden; -webkit-font-smoothing: antialiased; background:
+    radial-gradient(circle at 20% 15%, rgba(255, 199, 132, 0.12), transparent 28%),
+    radial-gradient(circle at 82% 18%, rgba(122, 168, 255, 0.14), transparent 32%),
+    linear-gradient(180deg, #151922 0%, #090b11 100%);
     user-select: none; -webkit-user-select: none; touch-action: none;
     cursor: grab; 
 }
 body:active { cursor: grabbing; }
+body::before,
+body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+}
+body::before {
+    z-index: 2;
+    background:
+    radial-gradient(circle at center, transparent 42%, rgba(4, 6, 10, 0.52) 100%),
+    linear-gradient(180deg, rgba(255, 214, 164, 0.08), transparent 24%, transparent 72%, rgba(8, 12, 20, 0.28));
+}
+body::after {
+    z-index: 1;
+    opacity: 0.16;
+    background-image:
+    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+    background-size: 3px 3px, 3px 3px;
+    mix-blend-mode: soft-light;
+}
 
-/* WebGL Context */
-#webgl-canvas { position: fixed; inset: 0; z-index: 0; outline: none; }
+/* ==========================================================================
+   WEBGL CONTEXT & CROSSHAIR
+   ========================================================================== */
+#webgl-canvas { position: fixed; inset: 0; z-index: 0; outline: none; filter: saturate(1.08) contrast(1.04); }
 
 #cursor-reticle {
     position: fixed; top: 50%; left: 50%; width: 6px; height: 6px;
@@ -35,19 +62,42 @@ body:active { cursor: grabbing; }
 }
 #cursor-reticle.active { transform: translate(-50%, -50%) scale(2.5); background: rgba(197, 160, 89, 0.9); }
 
+/* ==========================================================================
+   PROXIMITY HUDS (Book & TV)
+   ========================================================================== */
 #interaction-prompt {
     position: fixed; bottom: 15%; left: 50%; transform: translateX(-50%) translateY(20px);
-    background: rgba(223, 171, 160, 0.95); /* Rose Gold */
-    color: #fff; padding: 15px 30px;
+    background: linear-gradient(135deg, rgba(255, 214, 192, 0.9), rgba(203, 149, 117, 0.9));
+    color: #fff; padding: 16px 32px;
     font-family: 'Lora', serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em;
-    border-radius: 6px; font-size: 0.85rem; z-index: 50000; cursor: pointer;
-    box-shadow: 0 10px 30px rgba(223, 171, 160, 0.4); opacity: 0; pointer-events: none; visibility: hidden;
+    border: 1px solid rgba(255,255,255,0.2); border-radius: 999px; font-size: 0.85rem; z-index: 50000; cursor: pointer;
+    box-shadow: 0 18px 40px rgba(71, 30, 15, 0.28); opacity: 0; pointer-events: none; visibility: hidden;
+    backdrop-filter: blur(10px);
     transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 #interaction-prompt.visible { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0); pointer-events: auto; }
-#interaction-prompt:hover { background: rgba(255, 209, 217, 1); color: #1a110b; transform: translateX(-50%) translateY(-2px) scale(1.05); }
+#interaction-prompt:hover { background: linear-gradient(135deg, rgba(255, 227, 211, 0.98), rgba(228, 175, 142, 0.98)); color: #1a110b; transform: translateX(-50%) translateY(-2px) scale(1.05); }
 
-/* Virtual Joystick (Mobile) */
+/* TV Media Controls HUD */
+#tv-interaction-prompt {
+    position: fixed; bottom: 15%; left: 50%; transform: translateX(-50%) translateY(20px);
+    display: flex; gap: 15px; z-index: 50000; opacity: 0; pointer-events: none; visibility: hidden;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+#tv-interaction-prompt.visible { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0); pointer-events: auto; }
+
+.tv-ctrl-btn {
+    background: linear-gradient(180deg, rgba(15, 20, 29, 0.9), rgba(8, 10, 16, 0.92)); color: #fff; padding: 12px 25px;
+    font-family: 'Lora', serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;
+    border-radius: 999px; font-size: 0.75rem; border: 1px solid rgba(255,255,255,0.12);
+    cursor: pointer; backdrop-filter: blur(8px); box-shadow: 0 18px 35px rgba(0,0,0,0.22); transition: all 0.2s ease;
+}
+.tv-ctrl-btn:hover { background: linear-gradient(180deg, rgba(223, 171, 160, 0.95), rgba(173, 118, 97, 0.95)); border-color: rgba(255, 225, 214, 0.9); transform: scale(1.05); }
+.tv-ctrl-btn:active { transform: scale(0.95); }
+
+/* ==========================================================================
+   VIRTUAL JOYSTICK (Mobile Hardware Polling)
+   ========================================================================== */
 #virtual-joystick {
     position: fixed; bottom: 35px; left: 35px; width: 130px; height: 130px;
     z-index: 50000; touch-action: none; display: none; 
@@ -71,9 +121,12 @@ body:active { cursor: grabbing; }
 .joystick-base.active { border-color: rgba(223, 171, 160, 0.8); background: rgba(255, 255, 255, 0.4); }
 .joystick-base.active .joystick-stick { background: rgba(197, 160, 89, 0.9); }
 
-/* Global Illumination Blocker (High-Key / Claro) */
+/* ==========================================================================
+   GLOBAL ILLUMINATION BLOCKER (Abajur)
+   ========================================================================== */
 #room-darkness-overlay {
-    position: fixed; inset: 0; z-index: 999999; background-color: rgba(255, 255, 255, 0.98); 
+    position: fixed; inset: 0; z-index: 999999; background:
+    radial-gradient(circle at center, rgba(255, 244, 231, 0.92), rgba(235, 225, 214, 0.98)); 
     display: flex; align-items: flex-start; justify-content: center;
     backdrop-filter: blur(10px); transition: opacity 2.5s ease-in-out, background-color 1s ease, backdrop-filter 2s ease;
 }
@@ -88,13 +141,17 @@ body:active { cursor: grabbing; }
 .lamp-switch-wrapper:active .pull-ring { transform: scale(0.9); }
 @keyframes subtleSwing { 0% { transform: rotate(-3deg); } 100% { transform: rotate(3deg); } }
 
-/* Module Isolation */
+/* ==========================================================================
+   MODULE ISOLATION (Book Container)
+   ========================================================================== */
 .isolated-module { position: fixed; inset: 0; z-index: 99900; background: #000; opacity: 0; pointer-events: none; visibility: hidden; transition: opacity 1.2s ease-in-out, visibility 1.2s; cursor: default; }
 .isolated-module.active { opacity: 1; pointer-events: auto; visibility: visible; }
 .module-close-btn { position: absolute; top: 30px; left: 30px; z-index: 100000; background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 10px 20px; font-family: 'Lora', serif; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.1em; border-radius: 4px; cursor: pointer; backdrop-filter: blur(5px); transition: background 0.3s ease; }
 .module-close-btn:hover { background: rgba(223, 171, 160, 0.4); border-color: #dfaba0; }
 
-/* Book UI (Legacy 2D Code) */
+/* ==========================================================================
+   BOOK UI & TYPOGRAPHY
+   ========================================================================== */
 #book-container { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 10; }
 .van-gogh-background { position: absolute; inset: -5%; z-index: 1; pointer-events: none; }
 .van-gogh-image { width: 100%; height: 100%; object-fit: cover; animation: subtlePan 30s ease-in-out infinite alternate; will-change: transform; }
@@ -133,7 +190,9 @@ body:active { cursor: grabbing; }
 .editorial-layout .magic-text:first-of-type::first-letter { font-size: 2.2em; font-style: normal; color: #8b6d43; line-height: 0.8; float: left; margin-right: 6px; margin-top: 4px; text-shadow: none; }
 .photo-frame { width: min(60vw, 220px); aspect-ratio: 3 / 4; background-size: cover; background-position: center; border: 8px solid #ffffff; box-shadow: 0 6px 15px rgba(0,0,0,0.2); margin: 0 auto 15px auto; border-radius: 2px; }
 
-/* Galaxy Map Engine */
+/* ==========================================================================
+   GALAXY MAP ENGINE
+   ========================================================================== */
 #immersion-layer { position: absolute; inset: 0; z-index: 9999; overflow: hidden; background: radial-gradient(circle at center, #0a0e19 0%, #000000 100%); pointer-events: none; opacity: 0; transition: opacity 1.5s ease; cursor: grab; }
 #immersion-layer.active { pointer-events: auto; opacity: 1; }
 #galaxy-map { position: absolute; width: 300vw; height: 300vh; top: -100vh; left: -100vw; will-change: transform; }
@@ -154,6 +213,10 @@ body:active { cursor: grabbing; }
 #close-immersion { position: absolute; bottom: 5%; left: 50%; transform: translateX(-50%); z-index: 100; background: rgba(10, 14, 25, 0.8); border: 1px solid rgba(242, 227, 198, 0.3); color: #f2e3c6; font-family: 'Lora', serif; text-transform: uppercase; letter-spacing: 0.2em; font-size: 0.7rem; padding: 12px 30px; border-radius: 4px; cursor: pointer; transition: all 0.4s ease; backdrop-filter: blur(4px); }
 #close-immersion:hover { background: rgba(242, 227, 198, 0.2); border-color: rgba(242, 227, 198, 0.8); }
 
+/* ==========================================================================
+   MEDIA QUERIES (Responsividade)
+   ========================================================================== */
 @media (max-width: 767px) {
     .book-cover-wrapper, .content { width: min(86vw, 350px); height: min(70vh, 500px); }
+    #tv-interaction-prompt { flex-direction: column; gap: 10px; bottom: 10%; }
 }

@@ -1,7 +1,8 @@
 /**
  * @file script.js
  * @description Kinematic FPS Engine & State Machine. 
- * Hotfix: Correção de Orientação Espacial (Velas 20) e reposicionamento vetorial de prop (Balão).
+ * Rollback: Remoção do EnvMap em tempo real por custo excessivo de processamento. 
+ * Mantido: Cinematic Flythrough, Foil Balloons (Corações) e Azulejaria Procedural.
  */
 
 import * as THREE from 'three';
@@ -17,12 +18,13 @@ const textureAnisotropy = isMobileDevice ? 1 : 4;
 const canvas = document.getElementById('webgl-canvas');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: !isMobileDevice, powerPreference: 'high-performance' });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(1);
-renderer.shadowMap.enabled = false;
-renderer.shadowMap.type = THREE.BasicShadowMap;
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.toneMapping = THREE.NoToneMapping;
-renderer.toneMappingExposure = 1;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x141924);
@@ -35,16 +37,30 @@ const audioListener = new THREE.AudioListener();
 camera.add(audioListener);
 
 // ==========================================
-// 2. ILLUMINATION
+// 2. AUDIO SYSTEM & ILLUMINATION
 // ==========================================
+const birthdayMusic = new THREE.Audio(audioListener);
+const audioLoader = new THREE.AudioLoader();
+audioLoader.load('./audio/parabens.mp3', (buffer) => {
+    birthdayMusic.setBuffer(buffer);
+    birthdayMusic.setLoop(false);
+    birthdayMusic.setVolume(0.7);
+});
+
 const ambientLight = new THREE.AmbientLight(0xffffff, 0); 
 scene.add(ambientLight);
 
 const pointLight = new THREE.PointLight(0xffeedd, 0, 15); 
 pointLight.position.set(0, 4, 0); 
-pointLight.castShadow = false; 
+pointLight.castShadow = true; 
+pointLight.shadow.bias = -0.001;
+pointLight.shadow.mapSize.width = isMobileDevice ? 1024 : 2048;
+pointLight.shadow.mapSize.height = isMobileDevice ? 1024 : 2048;
 scene.add(pointLight);
 
+// ==========================================
+// 3. TEXTURAS PROCEDURAIS (CANVAS API)
+// ==========================================
 function createProceduralTexture(drawFn, width = textureSize, height = textureSize) {
     const textureCanvas = document.createElement('canvas');
     textureCanvas.width = width;
@@ -72,37 +88,34 @@ function addSpeckle(context, width, height, count, alpha) {
 }
 
 const floorTexture = createProceduralTexture((context, width, height) => {
-    const gradient = context.createLinearGradient(0, 0, width, height);
-    gradient.addColorStop(0, '#4b2f22');
-    gradient.addColorStop(0.45, '#7b5842');
-    gradient.addColorStop(1, '#241712');
-    context.fillStyle = gradient;
+    const tiles = 4;
+    const size = width / tiles;
+    const grout = 2; 
+    
+    context.fillStyle = '#b0b5b9';
     context.fillRect(0, 0, width, height);
-
-    context.strokeStyle = 'rgba(25, 15, 10, 0.45)';
-    context.lineWidth = 6;
-    for (let plank = 0; plank < 18; plank += 1) {
-        const y = (height / 18) * plank;
-        context.beginPath();
-        context.moveTo(0, y + (Math.random() * 10 - 5));
-        context.lineTo(width, y + (Math.random() * 10 - 5));
-        context.stroke();
+    
+    for (let x = 0; x < tiles; x++) {
+        for (let y = 0; y < tiles; y++) {
+            const tx = x * size + grout;
+            const ty = y * size + grout;
+            const tSize = size - grout * 2;
+            
+            const grad = context.createLinearGradient(tx, ty, tx + tSize, ty + tSize);
+            grad.addColorStop(0, '#ffffff');
+            grad.addColorStop(1, '#f2f4f7');
+            
+            context.fillStyle = grad;
+            context.fillRect(tx, ty, tSize, tSize);
+            
+            context.strokeStyle = 'rgba(30, 59, 112, 0.08)';
+            context.lineWidth = 1;
+            context.strokeRect(tx + tSize * 0.08, ty + tSize * 0.08, tSize * 0.84, tSize * 0.84);
+        }
     }
-
-    context.strokeStyle = 'rgba(255, 240, 220, 0.07)';
-    context.lineWidth = 2;
-    for (let grain = 0; grain < 80; grain += 1) {
-        const startX = Math.random() * width;
-        const startY = Math.random() * height;
-        context.beginPath();
-        context.moveTo(startX, startY);
-        context.bezierCurveTo(startX + 30, startY + Math.random() * 30, startX + 90, startY - Math.random() * 30, startX + 180, startY + Math.random() * 10);
-        context.stroke();
-    }
-
-    addSpeckle(context, width, height, 1200, 0.06);
+    addSpeckle(context, width, height, 300, 0.015);
 });
-floorTexture.repeat.set(2.4, 2.4);
+floorTexture.repeat.set(6, 6);
 
 const wallTexture = createProceduralTexture((context, width, height) => {
     const gradient = context.createLinearGradient(0, 0, width, height);
@@ -129,7 +142,6 @@ const wallTexture = createProceduralTexture((context, width, height) => {
         context.lineTo(x + Math.random() * 80 - 40, y + Math.random() * 120 - 60);
         context.stroke();
     }
-
     addSpeckle(context, width, height, 500, 0.018);
 });
 wallTexture.repeat.set(0.9, 0.9);
@@ -153,12 +165,16 @@ const ceilingTexture = createProceduralTexture((context, width, height) => {
 ceilingTexture.repeat.set(1.3, 1.3);
 
 // ==========================================
-// 3. ARCHITECTURE (Quarto 8x8)
+// 4. ARCHITECTURE (Quarto 8x8)
 // ==========================================
 const roomSize = { width: 8, height: 5, depth: 8 };
 
-const floor = new THREE.Mesh(new THREE.PlaneGeometry(roomSize.width, roomSize.depth), new THREE.MeshStandardMaterial({ map: floorTexture, color: 0xffffff, roughness: 0.68, metalness: 0.06 }));
-floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true;
+const floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(roomSize.width, roomSize.depth, 64, 64), 
+    new THREE.MeshStandardMaterial({ map: floorTexture, color: 0xffffff, roughness: 0.1, metalness: 0.05 })
+);
+floor.rotation.x = -Math.PI / 2; 
+floor.receiveShadow = true;
 scene.add(floor);
 
 const gridHelper = new THREE.GridHelper(roomSize.width, 10, 0x444444, 0x222222);
@@ -183,10 +199,8 @@ wallRight.rotation.y = Math.PI / 2; wallRight.position.set(roomSize.width/2, roo
 scene.add(wallsGroup);
 
 // ==========================================
-// 4. LEVEL DESIGN PROPS
+// 5. PROPS & MÓVEIS 
 // ==========================================
-
-// 4.1 A CAMA
 const bedGroup = new THREE.Group();
 const bedFrameMat = new THREE.MeshStandardMaterial({ color: 0x4a3525, roughness: 0.8 });
 const bedFrame = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.3, 2.1), bedFrameMat);
@@ -199,12 +213,10 @@ const pillow = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.15, 0.4), new THREE.M
 pillow.position.set(0, 0.575, 0.7); pillow.castShadow = true;
 const blanket = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.05, 1.3), new THREE.MeshStandardMaterial({ color: 0x887660, roughness: 0.9 }));
 blanket.position.set(0, 0.56, -0.35); blanket.castShadow = true;
-
 bedGroup.add(bedFrame, headboard, mattress, pillow, blanket);
 bedGroup.position.set(0, 0, 2.95); 
 scene.add(bedGroup);
 
-// 4.2 GUARDA-ROUPA
 const wardrobeGroup = new THREE.Group();
 const wWidth = 1.2; const wHeight = 3.2; const wDepth = 3.0; 
 const wardrobeBody = new THREE.Mesh(new THREE.BoxGeometry(wWidth, wHeight, wDepth), new THREE.MeshStandardMaterial({ color: 0x4a3525, roughness: 0.8 }));
@@ -219,11 +231,9 @@ const handleLeft = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.4, 0.05), handle
 handleLeft.position.set(wWidth/2 + 0.05, wHeight/2, -0.2); wardrobeGroup.add(handleLeft);
 const handleRight = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.4, 0.05), handleMat);
 handleRight.position.set(wWidth/2 + 0.05, wHeight/2, 0.2); wardrobeGroup.add(handleRight);
-
 wardrobeGroup.position.set(-3.25, 0, 2.5);
 scene.add(wardrobeGroup);
 
-// 4.3 TV ENGINE
 const tvGroup = new THREE.Group();
 const desk = new THREE.Mesh(new THREE.BoxGeometry(3.5, 0.6, 1), new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.8 }));
 desk.position.y = 0.3; desk.castShadow = true; desk.receiveShadow = true; tvGroup.add(desk);
@@ -268,13 +278,11 @@ if(videoElement) {
     tvAudio.setRefDistance(2.5); tvAudio.setRolloffFactor(1.5); 
     tvScreen.add(tvAudio);
 }
-
 tvGroup.position.set(0, 0, -3.4); 
 scene.add(tvGroup);
 
-
 // ==========================================
-// 5. CANTINHO DA LEITURA
+// 6. CANTINHO DA LEITURA & QUADROS
 // ==========================================
 const textureLoader = new THREE.TextureLoader();
 const assetBasePath = './yasmin-bday/imagens';
@@ -313,14 +321,10 @@ scene.add(lampGroup);
 
 const lampLight = new THREE.PointLight(0xffaa44, 0, 7, 1.5); 
 lampLight.position.set(-3.6, 1.0, 0.4); 
-lampLight.castShadow = false;
+lampLight.castShadow = true; 
+lampLight.shadow.bias = -0.002;
 scene.add(lampLight);
 
-// ==========================================
-// 6. GALERIA & DECORAÇÃO FESTIVA
-// ==========================================
-
-// --- Quadros ---
 function createPictureFrame(imagePath, width, height) {
     const frameGroup = new THREE.Group();
     const frameDepth = 0.05;
@@ -340,21 +344,19 @@ function createPictureFrame(imagePath, width, height) {
 
 const frameMain = createPictureFrame(`${assetBasePath}/yasmin2.jpeg`, 1.8, 1.4);
 frameMain.position.set(-3.95, 2.4, -0.5); frameMain.rotation.y = Math.PI / 2; scene.add(frameMain);
-
 const frameBed = createPictureFrame(`${assetBasePath}/yasmin3.jpeg`, 0.9, 1.2);
 frameBed.position.set(0, 2.2, 3.95); frameBed.rotation.y = Math.PI; scene.add(frameBed);
-
 const frame4 = createPictureFrame(`${assetBasePath}/yasmin4.jpeg`, 0.9, 1.2);
 frame4.position.set(3.95, 2.0, 1.2); frame4.rotation.y = -Math.PI / 2; scene.add(frame4);
-
 const frame5 = createPictureFrame(`${assetBasePath}/yasmin5.jpeg`, 0.9, 1.2);
 frame5.position.set(3.95, 2.0, 0); frame5.rotation.y = -Math.PI / 2; scene.add(frame5);
-
 const frame6 = createPictureFrame(`${assetBasePath}/yasmin6.jpeg`, 0.9, 1.2);
 frame6.position.set(3.95, 2.0, -1.2); frame6.rotation.y = -Math.PI / 2; scene.add(frame6);
 
 
-// --- Banners em Canvas ---
+// ==========================================
+// 7. BANNERS, CONFETES & BALÕES CORAÇÃO (Foil Material)
+// ==========================================
 function createBannerTexture(text, w, h, isPennant) {
     const canvas = document.createElement('canvas');
     canvas.width = w; canvas.height = h;
@@ -392,7 +394,6 @@ const hbMat = new THREE.MeshStandardMaterial({ map: hbTex, roughness: 0.8 });
 const hbMesh = new THREE.Mesh(new THREE.PlaneGeometry(3.0, 0.75), hbMat);
 hbMesh.position.set(0, 3.2, -3.95); scene.add(hbMesh);
 
-// --- Confetes ---
 function createConfettiLayer(colorHex, count) {
     const geo = new THREE.PlaneGeometry(0.04, 0.04);
     const mat = new THREE.MeshBasicMaterial({ color: colorHex, side: THREE.DoubleSide });
@@ -406,45 +407,60 @@ function createConfettiLayer(colorHex, count) {
 }
 scene.add(createConfettiLayer(0xffa6c9, 150)); scene.add(createConfettiLayer(0xffd700, 150)); scene.add(createConfettiLayer(0xffffff, 150)); 
 
-// --- Balões ---
+const heartShape = new THREE.Shape();
+heartShape.moveTo( 25, 25 );
+heartShape.bezierCurveTo( 25, 25, 20, 0, 0, 0 );
+heartShape.bezierCurveTo( - 30, 0, - 30, 35, - 30, 35 );
+heartShape.bezierCurveTo( - 30, 55, - 10, 77, 25, 95 );
+heartShape.bezierCurveTo( 60, 77, 80, 55, 80, 35 );
+heartShape.bezierCurveTo( 80, 35, 80, 0, 50, 0 );
+heartShape.bezierCurveTo( 35, 0, 25, 25, 25, 25 );
+
+const foilExtrudeSettings = { depth: 10, bevelEnabled: true, bevelSegments: 16, steps: 2, bevelSize: 4, bevelThickness: 5 };
+const heartGeo = new THREE.ExtrudeGeometry( heartShape, foilExtrudeSettings );
+heartGeo.center(); heartGeo.rotateZ(Math.PI); heartGeo.scale(0.0055, 0.0055, 0.0055);
+
 const kinematicBalloons = [];
-const balloonGeo = new THREE.SphereGeometry(0.3, isMobileDevice ? 16 : 32, isMobileDevice ? 16 : 32);
-function createBalloon(x, y, z, colorHex) {
+function createHeartBalloon(x, y, z, colorHex) {
     const bGroup = new THREE.Group();
-    const bMesh = new THREE.Mesh(balloonGeo, new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.1, metalness: 0.2 }));
-    bMesh.scale.set(1, 1.2, 1); bMesh.castShadow = true;
-    const sGeo = new THREE.CylinderGeometry(0.002, 0.002, y);
+    const bMesh = new THREE.Mesh(heartGeo, new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.15, metalness: 0.85 }));
+    bMesh.castShadow = true;
+    
+    const heartTipOffset = 0.28; 
+    const stringLength = y - heartTipOffset;
+    const sGeo = new THREE.CylinderGeometry(0.002, 0.002, stringLength);
     const sMesh = new THREE.Mesh(sGeo, new THREE.MeshBasicMaterial({ color: 0xdddddd }));
-    sMesh.position.y = -y / 2; 
+    sMesh.position.y = -(stringLength / 2) - heartTipOffset; 
+    
     bGroup.add(bMesh, sMesh); bGroup.position.set(x, y, z);
-    bGroup.rotation.z = (Math.random() - 0.5) * 0.1; bGroup.rotation.x = (Math.random() - 0.5) * 0.1;
+    bGroup.rotation.y = (Math.random() - 0.5) * 1.5; bGroup.rotation.z = (Math.random() - 0.5) * 0.15; 
+    
     kinematicBalloons.push({ mesh: bGroup, baseY: y, phaseOffset: Math.random() * Math.PI * 2 });
     scene.add(bGroup);
 }
-createBalloon(-2.5, 2.2, -2.5, 0xffa6c9); 
-createBalloon(-1.8, 1.8, -3.5, 0xffffff); 
-createBalloon(2.5, 2.5, -2.8, 0xffd700);
-createBalloon(-2.0, 2.1, 1.5, 0xffffff); 
-createBalloon(2.8, 2.4, 3.2, 0xffd700);
-// Balão rosa transladado mais para a direita (+Z) conforme solicitado
-createBalloon(3.2, 1.9, 2.5, 0xffa6c9); 
 
-// --- 6.4 MESA DA FESTA ---
+createHeartBalloon(-2.5, 2.2, -2.5, 0xcc0000); 
+createHeartBalloon(-1.8, 1.8, -3.5, 0xff6600); 
+createHeartBalloon(2.5, 2.5, -2.8, 0x002080); 
+createHeartBalloon(-2.0, 2.1, 1.5, 0xcc0000); 
+createHeartBalloon(2.8, 2.4, 3.2, 0xff6600); 
+createHeartBalloon(3.2, 1.9, 2.5, 0x002080); 
+
+// ==========================================
+// 8. MESA DA FESTA
+// ==========================================
 const partyTableGroup = new THREE.Group();
 const candleLights = [];
 
-// Tampo 
 const pTableTop = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.05, 2.0), new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.5 }));
 pTableTop.position.y = 0.8; pTableTop.castShadow = true; pTableTop.receiveShadow = true;
 partyTableGroup.add(pTableTop);
 
-// Pernas
 const legMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.5 });
 const pLeg1 = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.8, 0.05), legMat); pLeg1.position.set(0, 0.4, -0.9); pLeg1.castShadow = true;
 const pLeg2 = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.8, 0.05), legMat); pLeg2.position.set(0, 0.4, 0.9); pLeg2.castShadow = true;
 partyTableGroup.add(pLeg1, pLeg2);
 
-// Bolo 
 const cakeGroup = new THREE.Group();
 const tier1 = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.2, 32), new THREE.MeshStandardMaterial({ color: 0xffa6c9, roughness: 0.8 }));
 tier1.position.y = 0.1; tier1.castShadow = true;
@@ -452,7 +468,6 @@ const tier2 = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.15, 32), new
 tier2.position.y = 0.275; tier2.castShadow = true;
 cakeGroup.add(tier1, tier2);
 
-// Velas Numéricas "20" (Corrigidas: '2' na esquerda (-Z), '0' na direita (+Z))
 function createNumberCandle(numberStr) {
     const cvs = document.createElement('canvas');
     cvs.width = 128; cvs.height = 128;
@@ -487,17 +502,33 @@ function createNumberCandle(numberStr) {
 }
 
 const candle2 = createNumberCandle('2');
-candle2.position.set(0, 0.45, -0.08); // Fix: Eixo -Z (Esquerda do player ao olhar p/ +X)
+candle2.position.set(0, 0.45, -0.08); 
 candle2.rotation.y = -Math.PI / 2;
 const candle0 = createNumberCandle('0');
-candle0.position.set(0, 0.45, 0.08);  // Fix: Eixo +Z (Direita do player)
+candle0.position.set(0, 0.45, 0.08);  
 candle0.rotation.y = -Math.PI / 2; 
 
 cakeGroup.add(candle2, candle0);
+
+const sparklerCount = 350;
+const sGeo = new THREE.BufferGeometry();
+const sPos = new Float32Array(sparklerCount * 3);
+const sVel = [];
+for(let i=0; i<sparklerCount; i++) {
+    sPos[i*3]=0; sPos[i*3+1]=0; sPos[i*3+2]=0;
+    sVel.push({ x:(Math.random()-0.5)*0.03, y:Math.random()*0.07+0.04, z:(Math.random()-0.5)*0.03 });
+}
+sGeo.setAttribute('position', new THREE.BufferAttribute(sPos, 3));
+const sparklerParticles = new THREE.Points(sGeo, new THREE.PointsMaterial({ color: 0xffffee, size: 0.015, transparent: true, blending: THREE.AdditiveBlending }));
+sparklerParticles.position.set(0, 0.55, 0); sparklerParticles.visible = false;
+cakeGroup.add(sparklerParticles);
+
+const cakeLight = new THREE.PointLight(0xffaa44, 0, 5);
+cakeLight.position.set(0, 0.6, 0); cakeGroup.add(cakeLight);
+
 cakeGroup.position.set(0, 0.825, 0);
 partyTableGroup.add(cakeGroup);
 
-// Bandejas Procedurais
 function createTray(x, z, isSweet) {
     const trayGroup = new THREE.Group();
     const tray = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.015, 32), new THREE.MeshStandardMaterial({ color: 0xdddddd, metalness: 0.6 }));
@@ -526,9 +557,8 @@ partyTableGroup.add(createTray(0.25, -0.6, false));
 partyTableGroup.position.set(3.2, 0, 0); 
 scene.add(partyTableGroup);
 
-
 // ==========================================
-// 7. FPC CONTROLLER & MOUSE LOOK
+// 9. FPC CONTROLLER & MOUSE LOOK
 // ==========================================
 const player = new THREE.Mesh(new THREE.CapsuleGeometry(0.4, 0.8, 4, 16), new THREE.MeshBasicMaterial({ visible: false }));
 player.position.set(0, 0.8, 1.5); 
@@ -557,11 +587,11 @@ function updateJoyVector(e) {
 
 let isDraggingCam = false; let yaw = 0; let pitch = 0; let lastTouchX = 0; let lastTouchY = 0; const lookSensitivity = 0.003;
 window.addEventListener('pointerdown', (e) => {
-    if (e.target.closest('#virtual-joystick') || e.target.closest('#mobile-fullscreen-toggle') || e.target.closest('.isolated-module') || e.target.closest('.action-prompt') || e.target.closest('.tv-ctrl-btn') || e.target.closest('#lamp-switch')) return;
+    if (isCinematicIntro || e.target.closest('#virtual-joystick') || e.target.closest('#mobile-fullscreen-toggle') || e.target.closest('.isolated-module') || e.target.closest('.action-prompt') || e.target.closest('.tv-ctrl-btn') || e.target.closest('#lamp-switch')) return;
     isDraggingCam = true; lastTouchX = e.clientX; lastTouchY = e.clientY;
 });
 window.addEventListener('pointermove', (e) => {
-    if (!isDraggingCam || activeModule !== null) return;
+    if (!isDraggingCam || activeModule !== null || isCinematicIntro) return;
     const deltaX = e.clientX - lastTouchX; const deltaY = e.clientY - lastTouchY;
     lastTouchX = e.clientX; lastTouchY = e.clientY;
     yaw -= deltaX * lookSensitivity; pitch -= deltaY * lookSensitivity;
@@ -570,7 +600,7 @@ window.addEventListener('pointermove', (e) => {
 window.addEventListener('pointerup', () => { isDraggingCam = false; }); window.addEventListener('pointerleave', () => { isDraggingCam = false; }); 
 
 // ==========================================
-// 8. GAME STATE & INTERACTION
+// 10. GAME STATE, CINEMATICS & INTERACTION
 // ==========================================
 const roomDarkness = document.getElementById('room-darkness-overlay');
 const lampSwitch = document.getElementById('lamp-switch');
@@ -582,57 +612,66 @@ const tvPrompt = document.getElementById('tv-interaction-prompt');
 const btnTvPlay = document.getElementById('btn-tv-play');
 const btnTvMute = document.getElementById('btn-tv-mute');
 
-function getFullscreenElement() {
-    return document.fullscreenElement || document.webkitFullscreenElement || null;
-}
-
+function getFullscreenElement() { return document.fullscreenElement || document.webkitFullscreenElement || null; }
 function updateFullscreenButton() {
     if (!mobileFullscreenToggle) return;
-
-    const fullscreenSupported = Boolean(
-        document.fullscreenEnabled ||
-        document.webkitFullscreenEnabled ||
-        document.documentElement.requestFullscreen ||
-        document.documentElement.webkitRequestFullscreen
-    );
-
-    if (!isMobileDevice || !fullscreenSupported) {
-        mobileFullscreenToggle.classList.add('is-hidden');
-        mobileFullscreenToggle.setAttribute('aria-hidden', 'true');
-        return;
-    }
-
-    mobileFullscreenToggle.classList.remove('is-hidden');
-    mobileFullscreenToggle.setAttribute('aria-hidden', 'false');
-    mobileFullscreenToggle.textContent = getFullscreenElement() ? 'Sair da Tela Cheia' : 'Tela Cheia';
+    const fullscreenSupported = Boolean(document.fullscreenEnabled || document.webkitFullscreenEnabled || document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen);
+    if (!isMobileDevice || !fullscreenSupported) { mobileFullscreenToggle.classList.add('is-hidden'); mobileFullscreenToggle.setAttribute('aria-hidden', 'true'); return; }
+    mobileFullscreenToggle.classList.remove('is-hidden'); mobileFullscreenToggle.setAttribute('aria-hidden', 'false'); mobileFullscreenToggle.textContent = getFullscreenElement() ? 'Sair da Tela Cheia' : 'Tela Cheia';
 }
-
 async function toggleFullscreenMode(event) {
-    if (event) {
-        event.preventDefault();
-        event.stopPropagation();
-    }
-
+    if (event) { event.preventDefault(); event.stopPropagation(); }
     const rootElement = document.documentElement;
     try {
-        if (getFullscreenElement()) {
-            if (document.exitFullscreen) await document.exitFullscreen();
-            else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-            return;
-        }
-
-        if (rootElement.requestFullscreen) await rootElement.requestFullscreen();
-        else if (rootElement.webkitRequestFullscreen) rootElement.webkitRequestFullscreen();
-    } catch (error) {
-        console.warn('Tela cheia indisponivel neste navegador:', error);
-    } finally {
-        updateFullscreenButton();
-    }
+        if (getFullscreenElement()) { if (document.exitFullscreen) await document.exitFullscreen(); else if (document.webkitExitFullscreen) document.webkitExitFullscreen(); return; }
+        if (rootElement.requestFullscreen) await rootElement.requestFullscreen(); else if (rootElement.webkitRequestFullscreen) rootElement.webkitRequestFullscreen();
+    } catch (error) { console.warn('Tela cheia indisponivel:', error); } finally { updateFullscreenButton(); }
 }
 
-let isRoomLit = false; let activeModule = null; 
-let isNearBook = false; let isNearTV = false;
-let isLampOn = false;
+let isRoomLit = false; let activeModule = null; let isCinematicIntro = false;
+let isNearBook = false; let isNearTV = false; let isNearCake = false;
+let isLampOn = false; let isCelebrating = false;
+
+const introPath = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0, 1.6, 3.5),       
+    new THREE.Vector3(1.5, 1.6, 2.0),     
+    new THREE.Vector3(-1.8, 1.6, 1.0),    
+    new THREE.Vector3(1.0, 1.6, -0.5),    
+    new THREE.Vector3(0, 1.6, 1.5)        
+]);
+introPath.curveType = 'centripetal';
+const cinematicProxy = { t: 0 };
+const cinematicLookTarget = new THREE.Vector3(0, 1.6, 0);
+
+function executeCinematicIntro() {
+    isCinematicIntro = true;
+    if(joyZone) joyZone.style.opacity = '0';
+    if(cursorReticle) cursorReticle.style.display = 'none';
+    camera.position.copy(introPath.getPoint(0));
+    
+    const tl = gsap.timeline({
+        onUpdate: () => {
+            if (isCinematicIntro) {
+                camera.position.copy(introPath.getPoint(cinematicProxy.t));
+                camera.lookAt(cinematicLookTarget);
+            }
+        },
+        onComplete: () => {
+            isCinematicIntro = false;
+            const euler = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
+            yaw = euler.y; pitch = euler.x;
+            player.position.set(camera.position.x, 0.8, camera.position.z);
+            if(joyZone) joyZone.style.opacity = '1';
+            if(cursorReticle) cursorReticle.style.display = 'block';
+        }
+    });
+
+    tl.to(cinematicProxy, { t: 1.0, duration: 15, ease: "power2.inOut" }, 0);
+    tl.to(cinematicLookTarget, { x: 3.95, y: 2.0, z: 0, duration: 3.5, ease: "power1.inOut" }, 0); 
+    tl.to(cinematicLookTarget, { x: -3.5, y: 1.0, z: -0.5, duration: 4.0, ease: "power1.inOut" }, 3.5);
+    tl.to(cinematicLookTarget, { x: 3.2, y: 0.8, z: 0, duration: 4.0, ease: "power1.inOut" }, 7.5);
+    tl.to(cinematicLookTarget, { x: 0, y: 1.6, z: -10, duration: 3.5, ease: "power2.out" }, 11.5);
+}
 
 if (lampSwitch) {
     const triggerRoomLight = (e) => {
@@ -646,7 +685,10 @@ if (lampSwitch) {
             roomDarkness.style.opacity = '0'; 
             setTimeout(() => { roomDarkness.classList.add('lit'); }, 1500);
         }
-        gsap.to(lampSwitch, { opacity: 0, duration: 0.5, onComplete: () => { lampSwitch.style.display = 'none'; }});
+        gsap.to(lampSwitch, { opacity: 0, duration: 0.5, onComplete: () => { 
+            lampSwitch.style.display = 'none'; 
+            setTimeout(executeCinematicIntro, 500);
+        }});
     };
     lampSwitch.addEventListener('click', triggerRoomLight);
     lampSwitch.addEventListener('pointerdown', triggerRoomLight);
@@ -654,8 +696,45 @@ if (lampSwitch) {
 
 syncTvMuteLabel();
 
+function triggerCelebration() {
+    if(!isNearCake || isCelebrating || isCinematicIntro) return;
+    isCelebrating = true; activeModule = 'celebration';
+    if(interactionPrompt) interactionPrompt.classList.remove('visible'); 
+    if(cursorReticle) cursorReticle.classList.remove('active');
+    if(joyZone) joyZone.style.opacity = '0';
+
+    if(birthdayMusic.buffer) birthdayMusic.play();
+
+    const tl = gsap.timeline();
+    tl.to(ambientLight, { intensity: 0.05, duration: 1.5 });
+    tl.to(pointLight, { intensity: 0.1, duration: 1.5 }, 0);
+    
+    const framingPos = new THREE.Vector3(2.0, 1.4, 0);
+    tl.to(camera.position, { x: framingPos.x, y: framingPos.y, z: framingPos.z, duration: 2, ease: "power2.inOut" }, 0);
+    const targetEuler = new THREE.Euler().setFromQuaternion(new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(framingPos, cakeGroup.getWorldPosition(new THREE.Vector3()), camera.up)), 'YXZ');
+    tl.to(camera.rotation, { x: targetEuler.x, y: targetEuler.y, z: targetEuler.z, duration: 2, ease: "power2.inOut" }, 0);
+
+    tl.add(() => {
+        sparklerParticles.visible = true;
+        gsap.to(cakeLight, { intensity: 10, duration: 1 });
+        gsap.to(candle2.material, { emissiveIntensity: 5, duration: 1 });
+        gsap.to(candle0.material, { emissiveIntensity: 5, duration: 1 });
+    }, 1.5);
+
+    tl.add(() => {
+        gsap.to(ambientLight, { intensity: 0.52, duration: 2 });
+        gsap.to(pointLight, { intensity: 7, duration: 2 });
+        gsap.to(cakeLight, { intensity: 0, duration: 2 });
+        gsap.to(camera.position, { x: player.position.x, y: 1.6, z: player.position.z, duration: 2, ease: "power2.inOut", onComplete: () => {
+            isCelebrating = false; activeModule = null; sparklerParticles.visible = false; birthdayMusic.stop();
+            if(joyZone) joyZone.style.opacity = '1';
+        }});
+        gsap.to(camera.rotation, { x: pitch, y: yaw, z: 0, duration: 2, ease: "power2.inOut" });
+    }, 10);
+}
+
 function triggerInteraction() {
-    if(!isNearBook || activeModule === 'book') return;
+    if(!isNearBook || activeModule === 'book' || isCinematicIntro) return;
     activeModule = 'book'; isDraggingCam = false; interactionPrompt.classList.remove('visible'); cursorReticle.classList.remove('active');
     if(joyZone) joyZone.style.opacity = '0';
     
@@ -668,7 +747,7 @@ function triggerInteraction() {
         onComplete: () => { moduleBook.classList.add('active'); initStarParticles(); yaw = camera.rotation.y; pitch = camera.rotation.x; }
     });
 }
-if(interactionPrompt) interactionPrompt.addEventListener('click', triggerInteraction);
+if(interactionPrompt) interactionPrompt.addEventListener('click', () => { if(isNearBook) triggerInteraction(); if(isNearCake) triggerCelebration(); });
 
 if(btnCloseBook) {
     btnCloseBook.addEventListener('click', () => {
@@ -687,8 +766,9 @@ updateFullscreenButton();
 
 window.addEventListener('keydown', (e) => { 
     const k = e.key.toLowerCase();
-    if (isRoomLit && activeModule === null) {
-        if(k === 'e') triggerInteraction(); 
+    if (isRoomLit && activeModule === null && !isCinematicIntro) {
+        if(k === 'e' && isNearBook) triggerInteraction(); 
+        if(k === 'c' && isNearCake) triggerCelebration(); 
         if(k === 'l') {
             isLampOn = !isLampOn;
             gsap.to(lampLight, { intensity: isLampOn ? 5.6 : 0, duration: 0.3 });
@@ -702,7 +782,7 @@ window.addEventListener('keydown', (e) => {
 });
 
 // ==========================================
-// 9. MAIN RENDER LOOP 
+// 11. MAIN RENDER LOOP 
 // ==========================================
 const clock = new THREE.Clock();
 const moveDirection = new THREE.Vector3(); const forward = new THREE.Vector3(); const right = new THREE.Vector3();
@@ -711,25 +791,26 @@ function animate() {
     requestAnimationFrame(animate);
     const time = clock.getElapsedTime();
     tvScreenMat.needsUpdate = false;
-    if (!isMobileDevice) {
-        candleLights.forEach((light, index) => {
-            light.intensity = 0.95 + Math.sin(time * 8 + index * 1.4) * 0.2;
-        });
-    }
+    if (!isMobileDevice) { candleLights.forEach((light, index) => { light.intensity = 0.95 + Math.sin(time * 8 + index * 1.4) * 0.2; }); }
     
     bookMesh.position.y = 0.75 + Math.sin(time * 3) * 0.05;
 
-    kinematicBalloons.forEach((bData) => {
-        bData.mesh.position.y = bData.baseY + Math.sin(time * 2 + bData.phaseOffset) * 0.05;
-    });
+    kinematicBalloons.forEach((bData) => { bData.mesh.position.y = bData.baseY + Math.sin(time * 2 + bData.phaseOffset) * 0.05; });
 
-    if (isRoomLit && activeModule === null) {
+    if(isCelebrating && sparklerParticles.visible) {
+        const positions = sparklerParticles.geometry.attributes.position.array;
+        for(let i=0; i<sparklerCount; i++) {
+            sVel[i].y -= 0.003; 
+            positions[i*3] += sVel[i].x; positions[i*3+1] += sVel[i].y; positions[i*3+2] += sVel[i].z;
+            if(positions[i*3+1] < -0.2) { positions[i*3] = 0; positions[i*3+1] = 0; positions[i*3+2] = 0; sVel[i].y = Math.random()*0.07+0.04; }
+        }
+        sparklerParticles.geometry.attributes.position.needsUpdate = true;
+        cakeLight.intensity = 10 + Math.sin(time * 40) * 2; 
+    }
+
+    if (isRoomLit && activeModule === null && !isCinematicIntro) {
         let moveForward = 0; let moveRight = 0;
-        if(keys.w) moveForward += 1; 
-        if(keys.s) moveForward -= 1; 
-        if(keys.a) moveRight -= 1; 
-        if(keys.d) moveRight += 1;
-        
+        if(keys.w) moveForward += 1; if(keys.s) moveForward -= 1; if(keys.a) moveRight -= 1; if(keys.d) moveRight += 1;
         if(joyActive) { moveRight += joyVector.x; moveForward -= joyVector.y; }
 
         if (moveForward !== 0 || moveRight !== 0) {
@@ -738,51 +819,44 @@ function animate() {
             player.position.addScaledVector(right, moveDirection.x); player.position.addScaledVector(forward, moveDirection.z);
         }
 
-        player.position.x = Math.max(-3.0, Math.min(3.0, player.position.x)); 
-        player.position.z = Math.max(-3.0, Math.min(3.5, player.position.z));
-        
-        if (player.position.z > 1.6 && player.position.x > -0.8 && player.position.x < 0.8) {
-            player.position.z = 1.6; 
-        }
+        player.position.x = Math.max(-3.0, Math.min(3.0, player.position.x)); player.position.z = Math.max(-3.0, Math.min(3.5, player.position.z));
+        if (player.position.z > 1.6 && player.position.x > -0.8 && player.position.x < 0.8) { player.position.z = 1.6; }
 
-        const tMinX = 2.2; 
-        const tMaxZ = 1.4; 
-        const tMinZ = -1.4; 
-        
+        const tMinX = 2.2; const tMaxZ = 1.4; const tMinZ = -1.4; 
         if (player.position.x > tMinX && player.position.z > tMinZ && player.position.z < tMaxZ) {
-            const dFront = player.position.x - tMinX;
-            const dLeft = player.position.z - tMinZ;
-            const dRight = tMaxZ - player.position.z;
-            
+            const dFront = player.position.x - tMinX; const dLeft = player.position.z - tMinZ; const dRight = tMaxZ - player.position.z;
             const minD = Math.min(dFront, dLeft, dRight);
-            if (minD === dFront) player.position.x = tMinX;
-            else if (minD === dLeft) player.position.z = tMinZ;
-            else player.position.z = tMaxZ;
+            if (minD === dFront) player.position.x = tMinX; else if (minD === dLeft) player.position.z = tMinZ; else player.position.z = tMaxZ;
         }
         
         camera.position.set(player.position.x, 1.6, player.position.z); 
         camera.rotation.set(pitch, yaw, 0, 'YXZ');
 
-        if (player.position.distanceTo(shelf.position) <= interactionRadius) {
+        const distToBook = player.position.distanceTo(shelf.position);
+        const distToTable = player.position.distanceTo(partyTableGroup.position);
+
+        if (distToBook <= interactionRadius) {
+            isNearCake = false;
             if (!isNearBook) { 
                 isNearBook = true; 
                 if(interactionPrompt) { interactionPrompt.innerHTML = "PRESSIONE [ E ] PARA LER | [ L ] ABAJUR"; interactionPrompt.classList.add('visible'); }
                 if(cursorReticle) cursorReticle.classList.add('active'); 
                 gsap.to(coverMat, { emissiveIntensity: 1.5, duration: 0.3 }); 
             }
+        } else if (distToTable <= interactionRadius + 0.5) {
+            isNearBook = false;
+            if (!isNearCake) {
+                isNearCake = true;
+                if(interactionPrompt) { interactionPrompt.innerHTML = "PRESSIONE [ C ] PARA CANTAR PARABÉNS"; interactionPrompt.classList.add('visible'); }
+                if(cursorReticle) cursorReticle.classList.add('active'); 
+            }
         } else {
-            if (isNearBook) { 
-                isNearBook = false; 
+            if (isNearBook || isNearCake) { 
+                isNearBook = false; isNearCake = false;
                 if(interactionPrompt) interactionPrompt.classList.remove('visible'); 
                 if(cursorReticle) cursorReticle.classList.remove('active'); 
                 gsap.to(coverMat, { emissiveIntensity: 0.2, duration: 0.3 }); 
             }
-        }
-
-        if (tvPrompt && player.position.distanceTo(tvGroup.position) <= interactionRadius + 0.5) { 
-            if (!isNearTV) { isNearTV = true; tvPrompt.classList.add('visible'); }
-        } else {
-            if (isNearTV && tvPrompt) { isNearTV = false; tvPrompt.classList.remove('visible'); }
         }
     }
     renderer.render(scene, camera);
@@ -793,39 +867,62 @@ window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(1);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 });
 
 // ==========================================
-// 10. ISOLATED BOOK LOGIC
+// 12. ISOLATED BOOK LOGIC
 // ==========================================
-const coverWrapper = document.querySelector('.book-cover-wrapper'); const pages = document.querySelectorAll('.page'); const starCanvas = document.getElementById('star-particles'); const photoCh1 = document.getElementById('ch1-photo'); const immersionLayer = document.getElementById('immersion-layer'); const closeImmersionBtn = document.getElementById('close-immersion'); const galaxyMap = document.getElementById('galaxy-map'); const staticStarsLayer = document.getElementById('static-stars-layer'); const interactiveStars = document.querySelectorAll('.interactive-star'); const hudOverlay = document.getElementById('hud-message-overlay'); const hudText = document.getElementById('hud-text');
+const coverWrapper = document.querySelector('.book-cover-wrapper'); const pages = document.querySelectorAll('.page'); const starCanvas = document.getElementById('star-particles'); const photoCh1 = document.getElementById('ch1-photo'); const immersionLayer = document.getElementById('immersion-layer'); const closeImmersionBtn = document.getElementById('close-immersion'); const galaxyMap = document.getElementById('galaxy-map'); const staticStarsLayer = document.getElementById('static-stars-layer'); const interactiveStars = document.querySelectorAll('.interactive-star'); const hudOverlay = document.getElementById('hud-message-overlay'); const hudText = document.getElementById('hud-text'); const quizPages = document.querySelectorAll('.quiz-layout');
 let currentPage = 0; const totalPages = pages.length; let isAnimatingBook = false; 
 
 if(moduleBook) {
     moduleBook.addEventListener('click', (event) => {
         if (isAnimatingBook || activeModule !== 'book') return; 
-        if (event.target.closest('#immersion-layer') || event.target.closest('.interactive-frame') || event.target.closest('.module-close-btn')) return;
+        if (event.target.closest('#immersion-layer') || event.target.closest('.interactive-frame') || event.target.closest('.module-close-btn') || event.target.closest('.quiz-option')) return;
         const clickX = event.clientX; const screenW = window.innerWidth; const clickedLeftBook = event.target.closest('.book-cover-wrapper');
         if (currentPage === 0) { if (clickedLeftBook) goToPage(1); } else { if (clickedLeftBook) { goToPage(currentPage - 1); } else if (clickX > screenW / 2) { goToPage(currentPage + 1); } }
     });
 }
+quizPages.forEach((quizPage) => {
+    const correctAnswer = quizPage.dataset.answer;
+    const feedback = quizPage.querySelector('.quiz-feedback');
+    const options = quizPage.querySelectorAll('.quiz-option');
 
+    options.forEach((option) => {
+        option.addEventListener('click', (event) => {
+            event.stopPropagation();
+
+            const selectedChoice = option.dataset.choice;
+            const isCorrect = selectedChoice === correctAnswer;
+
+            options.forEach((item) => {
+                item.classList.remove('is-selected', 'is-correct', 'is-wrong');
+            });
+
+            option.classList.add('is-selected');
+            option.classList.add(isCorrect ? 'is-correct' : 'is-wrong');
+
+            if (feedback) {
+                feedback.classList.remove('is-correct', 'is-wrong');
+                feedback.classList.add(isCorrect ? 'is-correct' : 'is-wrong');
+                feedback.textContent = isCorrect ? 'Acertou.' : `Errou. A correta é ${correctAnswer}.`;
+            }
+        });
+    });
+});
 function goToPage(index) {
     if (index < 0 || index >= totalPages) return; isAnimatingBook = true; currentPage = index;
     if (currentPage > 0) { coverWrapper.style.transformOrigin = "left center"; coverWrapper.style.transform = "rotateY(-140deg) translateZ(10px)"; } else { coverWrapper.style.transformOrigin = "left center"; coverWrapper.style.transform = "rotateY(0deg) translateZ(0)"; }
     setTimeout(() => { pages.forEach((page, i) => { if (i === currentPage && i !== 0) { page.classList.add('active'); const magicTexts = page.querySelectorAll('.magic-text'); let globalWordOffset = 0; magicTexts.forEach(textBlock => { globalWordOffset = revealText(textBlock, globalWordOffset); }); } else { page.classList.remove('active'); } }); isAnimatingBook = false; }, 300); 
 }
-
 function revealText(element, startOffset = 0) {
     if (!element || element.dataset.done === "true") return startOffset; const originalText = element.innerText; element.innerHTML = ''; const words = originalText.split(' ');
     words.forEach((word, index) => { const span = document.createElement('span'); span.innerHTML = word + '&nbsp;'; span.style.opacity = '0'; span.style.filter = 'blur(8px)'; span.style.display = 'inline-block'; span.style.transform = 'translateY(5px)'; span.style.transition = `all 0.8s cubic-bezier(0.23, 1, 0.32, 1) ${(startOffset + index) * 0.05}s`; element.appendChild(span); requestAnimationFrame(() => { span.style.opacity = '1'; span.style.filter = 'blur(0px)'; span.style.transform = 'translateY(0px)'; }); });
     element.dataset.done = "true"; return startOffset + words.length; 
 }
-
-let isDraggingMap = false; let dragThresholdMet = false; let startXMap = 0, startYMap = 0; let currentTransX = 0, currentTransY = 0; let initialTransX = 0, initialTransY = 0;
 function generateGalaxyBackground() { const mapWidth = window.innerWidth * 3; const mapHeight = window.innerHeight * 3; const shadows = []; for(let i = 0; i < 600; i++) { const x = Math.floor(Math.random() * mapWidth); const y = Math.floor(Math.random() * mapHeight); const size = Math.random() < 0.85 ? 1 : 2; const alpha = (Math.random() * 0.5 + 0.1).toFixed(2); shadows.push(`${x}px ${y}px 0 ${size}px rgba(255,255,255,${alpha})`); } if(staticStarsLayer) { staticStarsLayer.style.boxShadow = shadows.join(', '); staticStarsLayer.style.width = '1px'; staticStarsLayer.style.height = '1px'; } }
-if (photoCh1) { photoCh1.addEventListener('click', (event) => { event.stopPropagation(); generateGalaxyBackground(); immersionLayer.classList.add('active'); currentTransX = 0; currentTransY = 0; galaxyMap.style.transform = `translate3d(0px, 0px, 0)`; }); }
+if (photoCh1) { photoCh1.addEventListener('click', (event) => { event.stopPropagation(); generateGalaxyBackground(); immersionLayer.classList.add('active'); let currentTransX = 0, currentTransY = 0; galaxyMap.style.transform = `translate3d(0px, 0px, 0)`; }); }
 if (closeImmersionBtn) { closeImmersionBtn.addEventListener('click', (event) => { event.stopPropagation(); immersionLayer.classList.remove('active'); hudOverlay.classList.remove('visible'); }); }
 if (galaxyMap) {
     galaxyMap.addEventListener('pointerdown', (e) => { isDraggingMap = true; dragThresholdMet = false; startXMap = e.clientX; startYMap = e.clientY; initialTransX = currentTransX; initialTransY = currentTransY; });
@@ -834,7 +931,6 @@ if (galaxyMap) {
 window.addEventListener('pointerup', () => { isDraggingMap = false; });
 interactiveStars.forEach(star => { star.addEventListener('click', (e) => { e.stopPropagation(); if (dragThresholdMet) return; const msg = star.getAttribute('data-message'); hudText.innerHTML = `"${msg}"`; hudOverlay.classList.add('visible'); }); });
 if(hudOverlay) hudOverlay.addEventListener('click', (e) => { e.stopPropagation(); hudOverlay.classList.remove('visible'); });
-
 function initStarParticles() {
     if (!starCanvas) return; const context = starCanvas.getContext('2d'); if (!context) return; const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches; const stars = []; let width = 0; let height = 0;
     function resizeCanvas() { width = window.innerWidth; height = window.innerHeight; starCanvas.width = width; starCanvas.height = height; }

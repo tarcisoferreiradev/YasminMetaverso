@@ -16,6 +16,8 @@ const textureSize = isMobileDevice ? 512 : 1024;
 const textureAnisotropy = isMobileDevice ? 1 : 4;
 
 const canvas = document.getElementById('webgl-canvas');
+const paintCanvasElement = document.getElementById('paint-canvas');
+const paintContext = paintCanvasElement ? paintCanvasElement.getContext('2d') : null;
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: !isMobileDevice, powerPreference: 'high-performance' });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -35,6 +37,14 @@ camera.rotation.order = 'YXZ';
 
 const audioListener = new THREE.AudioListener();
 camera.add(audioListener);
+
+let paintCanvasTexture = null;
+if (paintCanvasElement && paintContext) {
+    paintContext.fillStyle = '#fffdf8';
+    paintContext.fillRect(0, 0, paintCanvasElement.width, paintCanvasElement.height);
+    paintCanvasTexture = new THREE.CanvasTexture(paintCanvasElement);
+    paintCanvasTexture.colorSpace = THREE.SRGBColorSpace;
+}
 
 // ==========================================
 // 2. AUDIO SYSTEM & ILLUMINATION
@@ -217,6 +227,72 @@ bedGroup.add(bedFrame, headboard, mattress, pillow, blanket);
 bedGroup.position.set(0, 0, 2.95); 
 scene.add(bedGroup);
 
+const bedsideTableGroup = new THREE.Group();
+const bedsideWoodMat = new THREE.MeshStandardMaterial({ color: 0x5b4030, roughness: 0.82 });
+const bedsideTop = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.08, 0.62), bedsideWoodMat);
+bedsideTop.position.y = 0.62; bedsideTop.castShadow = true; bedsideTop.receiveShadow = true;
+bedsideTableGroup.add(bedsideTop);
+
+const bedsideShelf = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.05, 0.5), new THREE.MeshStandardMaterial({ color: 0x4a3325, roughness: 0.85 }));
+bedsideShelf.position.y = 0.28; bedsideShelf.castShadow = true; bedsideShelf.receiveShadow = true;
+bedsideTableGroup.add(bedsideShelf);
+
+for (const legX of [-0.24, 0.24]) {
+    for (const legZ of [-0.24, 0.24]) {
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.6, 0.06), bedsideWoodMat);
+        leg.position.set(legX, 0.3, legZ);
+        leg.castShadow = true;
+        bedsideTableGroup.add(leg);
+    }
+}
+
+const radioGroup = new THREE.Group();
+const radioBody = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.18, 0.18), new THREE.MeshStandardMaterial({ color: 0x2b2422, roughness: 0.7, metalness: 0.18 }));
+radioBody.position.y = 0.12; radioBody.castShadow = true; radioBody.receiveShadow = true;
+radioGroup.add(radioBody);
+
+const speakerMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.92 });
+const speakerLeft = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.02, 18), speakerMat);
+speakerLeft.rotation.x = Math.PI / 2; speakerLeft.position.set(-0.095, 0.12, 0.095);
+radioGroup.add(speakerLeft);
+const speakerRight = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.02, 18), speakerMat);
+speakerRight.rotation.x = Math.PI / 2; speakerRight.position.set(0.095, 0.12, 0.095);
+radioGroup.add(speakerRight);
+
+const tunerPanel = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.03, 0.01), new THREE.MeshStandardMaterial({ color: 0xc9ae74, roughness: 0.35, metalness: 0.5 }));
+tunerPanel.position.set(0, 0.15, 0.096);
+radioGroup.add(tunerPanel);
+
+const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.26, 8), new THREE.MeshStandardMaterial({ color: 0xb7b7b7, roughness: 0.3, metalness: 0.85 }));
+antenna.position.set(0.11, 0.27, 0.02); antenna.rotation.z = -0.18;
+radioGroup.add(antenna);
+
+const radioButton = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.02, 14), new THREE.MeshStandardMaterial({ color: 0xd7c7a3, roughness: 0.4, metalness: 0.25 }));
+radioButton.rotation.x = Math.PI / 2; radioButton.position.set(0.14, 0.08, 0.095);
+radioGroup.add(radioButton);
+
+radioGroup.rotation.y = Math.PI;
+radioGroup.position.set(0, 0.62, 0);
+bedsideTableGroup.add(radioGroup);
+bedsideTableGroup.position.set(1.08, 0, 3.42);
+scene.add(bedsideTableGroup);
+
+const radioAudioElement = document.getElementById('radio-audio');
+if (radioAudioElement) {
+    radioAudioElement.volume = 0.55;
+    radioAudioElement.preload = 'auto';
+}
+
+let radioPositionalAudio = null;
+if (radioAudioElement) {
+    radioPositionalAudio = new THREE.PositionalAudio(audioListener);
+    radioPositionalAudio.setMediaElementSource(radioAudioElement);
+    radioPositionalAudio.setRefDistance(1.8);
+    radioPositionalAudio.setRolloffFactor(1.7);
+    radioPositionalAudio.setVolume(0.9);
+    radioGroup.add(radioPositionalAudio);
+}
+
 const wardrobeGroup = new THREE.Group();
 const wWidth = 1.2; const wHeight = 3.2; const wDepth = 3.0; 
 const wardrobeBody = new THREE.Mesh(new THREE.BoxGeometry(wWidth, wHeight, wDepth), new THREE.MeshStandardMaterial({ color: 0x4a3525, roughness: 0.8 }));
@@ -259,6 +335,20 @@ function syncTvMuteLabel() {
     if (!btnTvMute || !videoElement) return;
     btnTvMute.innerText = videoElement.muted ? "[ M ] Desmutar" : "[ M ] Mutar Som";
 }
+
+function toggleRadioPlayback() {
+    if (!radioAudioElement) return;
+
+    if (radioAudioElement.paused) {
+        const playPromise = radioAudioElement.play();
+        if (playPromise && typeof playPromise.catch === 'function') {
+            playPromise.catch((error) => console.warn('Reproducao do radio bloqueada:', error));
+        }
+        return;
+    }
+
+    radioAudioElement.pause();
+ }
 
 function requestTvPlayback() {
     if (!videoElement) return;
@@ -352,6 +442,33 @@ const frame5 = createPictureFrame(`${assetBasePath}/yasmin5.jpeg`, 0.9, 1.2);
 frame5.position.set(3.95, 2.0, 0); frame5.rotation.y = -Math.PI / 2; scene.add(frame5);
 const frame6 = createPictureFrame(`${assetBasePath}/yasmin6.jpeg`, 0.9, 1.2);
 frame6.position.set(3.95, 2.0, -1.2); frame6.rotation.y = -Math.PI / 2; scene.add(frame6);
+
+const easelGroup = new THREE.Group();
+const easelWoodMat = new THREE.MeshStandardMaterial({ color: 0x7c5a3e, roughness: 0.82 });
+const easelLegGeo = new THREE.BoxGeometry(0.08, 2.05, 0.08);
+const easelLeftLeg = new THREE.Mesh(easelLegGeo, easelWoodMat);
+easelLeftLeg.position.set(-0.46, 1.02, 0.02); easelLeftLeg.rotation.z = 0.12; easelLeftLeg.castShadow = true;
+const easelRightLeg = new THREE.Mesh(easelLegGeo, easelWoodMat);
+easelRightLeg.position.set(0.46, 1.02, 0.02); easelRightLeg.rotation.z = -0.12; easelRightLeg.castShadow = true;
+const easelBackLeg = new THREE.Mesh(new THREE.BoxGeometry(0.07, 1.85, 0.07), easelWoodMat);
+easelBackLeg.position.set(0, 0.9, -0.48); easelBackLeg.rotation.x = -0.38; easelBackLeg.castShadow = true;
+const easelCrossbar = new THREE.Mesh(new THREE.BoxGeometry(0.94, 0.08, 0.08), easelWoodMat);
+easelCrossbar.position.set(0, 1.2, 0.03); easelCrossbar.castShadow = true;
+const easelShelf = new THREE.Mesh(new THREE.BoxGeometry(1.08, 0.08, 0.18), easelWoodMat);
+easelShelf.position.set(0, 0.8, 0.11); easelShelf.castShadow = true;
+
+const paintFrame = new THREE.Mesh(new THREE.BoxGeometry(1.18, 1.42, 0.06), new THREE.MeshStandardMaterial({ color: 0x1d1410, roughness: 0.8 }));
+paintFrame.position.set(0, 1.58, 0.02); paintFrame.castShadow = true;
+const paintSurface = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.0, 1.24),
+    new THREE.MeshStandardMaterial({ color: 0xffffff, map: paintCanvasTexture, roughness: 0.96, metalness: 0.02 })
+);
+paintSurface.position.set(0, 1.58, 0.055);
+
+easelGroup.add(easelLeftLeg, easelRightLeg, easelBackLeg, easelCrossbar, easelShelf, paintFrame, paintSurface);
+easelGroup.position.set(3.42, 0, -2.72);
+easelGroup.rotation.y = -0.9;
+scene.add(easelGroup);
 
 
 // ==========================================
@@ -607,10 +724,15 @@ const lampSwitch = document.getElementById('lamp-switch');
 const interactionPrompt = document.getElementById('interaction-prompt');
 const moduleBook = document.getElementById('subsystem-book');
 const btnCloseBook = document.getElementById('close-book-module');
+const modulePaint = document.getElementById('subsystem-paint');
+const btnClosePaint = document.getElementById('close-paint-module');
 const cursorReticle = document.getElementById('cursor-reticle');
 const tvPrompt = document.getElementById('tv-interaction-prompt');
 const btnTvPlay = document.getElementById('btn-tv-play');
 const btnTvMute = document.getElementById('btn-tv-mute');
+const paintBrushSizeInput = document.getElementById('paint-brush-size');
+const paintClearButton = document.getElementById('paint-clear');
+const paintColorButtons = document.querySelectorAll('.paint-color');
 
 function getFullscreenElement() { return document.fullscreenElement || document.webkitFullscreenElement || null; }
 function updateFullscreenButton() {
@@ -629,8 +751,11 @@ async function toggleFullscreenMode(event) {
 }
 
 let isRoomLit = false; let activeModule = null; let isCinematicIntro = false;
-let isNearBook = false; let isNearTV = false; let isNearCake = false;
+let isNearBook = false; let isNearTV = false; let isNearCake = false; let isNearRadio = false; let isNearPaint = false;
 let isLampOn = false; let isCelebrating = false;
+let selectedPaintColor = '#1f4fbf';
+let selectedBrushSize = paintBrushSizeInput ? Number(paintBrushSizeInput.value) : 10;
+let isPainting = false;
 
 const introPath = new THREE.CatmullRomCurve3([
     new THREE.Vector3(0, 1.6, 3.5),       
@@ -747,13 +872,105 @@ function triggerInteraction() {
         onComplete: () => { moduleBook.classList.add('active'); initStarParticles(); yaw = camera.rotation.y; pitch = camera.rotation.x; }
     });
 }
-if(interactionPrompt) interactionPrompt.addEventListener('click', () => { if(isNearBook) triggerInteraction(); if(isNearCake) triggerCelebration(); });
+function triggerPaintModule() {
+    if (!isNearPaint || activeModule === 'paint' || isCinematicIntro) return;
+    activeModule = 'paint';
+    isDraggingCam = false;
+    if(interactionPrompt) interactionPrompt.classList.remove('visible');
+    if(cursorReticle) cursorReticle.classList.remove('active');
+    if(joyZone) joyZone.style.opacity = '0';
+
+    const targetPos = new THREE.Vector3(easelGroup.position.x - 1.0, 1.45, easelGroup.position.z + 0.18);
+    const easelFocus = paintSurface.getWorldPosition(new THREE.Vector3());
+    gsap.to(camera.position, { x: targetPos.x, y: targetPos.y, z: targetPos.z, duration: 1.2, ease: 'power3.inOut' });
+    const targetEuler = new THREE.Euler().setFromQuaternion(new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(targetPos, easelFocus, camera.up)), 'YXZ');
+    gsap.to(camera.rotation, {
+        x: targetEuler.x, y: targetEuler.y, z: targetEuler.z, duration: 1.2, ease: 'power3.inOut',
+        onComplete: () => { if (modulePaint) modulePaint.classList.add('active'); yaw = camera.rotation.y; pitch = camera.rotation.x; }
+    });
+}
+if(interactionPrompt) interactionPrompt.addEventListener('click', () => { if(isNearBook) triggerInteraction(); if(isNearCake) triggerCelebration(); if(isNearPaint) triggerPaintModule(); });
+if(interactionPrompt) interactionPrompt.addEventListener('click', () => { if(isNearRadio) toggleRadioPlayback(); });
 
 if(btnCloseBook) {
     btnCloseBook.addEventListener('click', () => {
         moduleBook.classList.remove('active');
         gsap.to(camera.position, { x: player.position.x, y: 1.6, z: player.position.z, duration: 1.5, ease: "power3.inOut", onComplete: () => { activeModule = null; if(joyZone) joyZone.style.opacity = '1'; } });
     });
+}
+
+if (btnClosePaint) {
+    btnClosePaint.addEventListener('click', () => {
+        if (modulePaint) modulePaint.classList.remove('active');
+        if (paintCanvasTexture) paintCanvasTexture.needsUpdate = true;
+        gsap.to(camera.position, { x: player.position.x, y: 1.6, z: player.position.z, duration: 1.3, ease: 'power3.inOut', onComplete: () => { activeModule = null; if(joyZone) joyZone.style.opacity = '1'; } });
+    });
+}
+
+if (paintBrushSizeInput) {
+    paintBrushSizeInput.addEventListener('input', () => {
+        selectedBrushSize = Number(paintBrushSizeInput.value);
+    });
+}
+
+paintColorButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+        selectedPaintColor = button.dataset.color || selectedPaintColor;
+        paintColorButtons.forEach((item) => item.classList.remove('is-active'));
+        button.classList.add('is-active');
+    });
+});
+
+if (paintClearButton && paintCanvasElement && paintContext) {
+    paintClearButton.addEventListener('click', () => {
+        paintContext.fillStyle = '#fffdf8';
+        paintContext.fillRect(0, 0, paintCanvasElement.width, paintCanvasElement.height);
+        if (paintCanvasTexture) paintCanvasTexture.needsUpdate = true;
+    });
+}
+
+function getPaintCanvasPosition(event) {
+    if (!paintCanvasElement) return { x: 0, y: 0 };
+    const rect = paintCanvasElement.getBoundingClientRect();
+    return {
+        x: (event.clientX - rect.left) * (paintCanvasElement.width / rect.width),
+        y: (event.clientY - rect.top) * (paintCanvasElement.height / rect.height)
+    };
+}
+
+function startPainting(event) {
+    if (!paintCanvasElement || !paintContext) return;
+    isPainting = true;
+    const { x, y } = getPaintCanvasPosition(event);
+    paintContext.beginPath();
+    paintContext.moveTo(x, y);
+    event.preventDefault();
+}
+
+function continuePainting(event) {
+    if (!isPainting || !paintCanvasElement || !paintContext) return;
+    const { x, y } = getPaintCanvasPosition(event);
+    paintContext.lineCap = 'round';
+    paintContext.lineJoin = 'round';
+    paintContext.strokeStyle = selectedPaintColor;
+    paintContext.lineWidth = selectedBrushSize;
+    paintContext.lineTo(x, y);
+    paintContext.stroke();
+    if (paintCanvasTexture) paintCanvasTexture.needsUpdate = true;
+    event.preventDefault();
+}
+
+function stopPainting() {
+    if (!paintContext) return;
+    isPainting = false;
+    paintContext.closePath();
+}
+
+if (paintCanvasElement) {
+    paintCanvasElement.addEventListener('pointerdown', startPainting);
+    paintCanvasElement.addEventListener('pointermove', continuePainting);
+    paintCanvasElement.addEventListener('pointerup', stopPainting);
+    paintCanvasElement.addEventListener('pointerleave', stopPainting);
 }
 
 if(btnTvPlay && videoElement) btnTvPlay.addEventListener('click', () => { if (videoElement.paused) requestTvPlayback(); else videoElement.pause(); });
@@ -769,6 +986,7 @@ window.addEventListener('keydown', (e) => {
     if (isRoomLit && activeModule === null && !isCinematicIntro) {
         if(k === 'e' && isNearBook) triggerInteraction(); 
         if(k === 'c' && isNearCake) triggerCelebration(); 
+        if(k === 'e' && isNearPaint) triggerPaintModule();
         if(k === 'l') {
             isLampOn = !isLampOn;
             gsap.to(lampLight, { intensity: isLampOn ? 5.6 : 0, duration: 0.3 });
@@ -778,6 +996,9 @@ window.addEventListener('keydown', (e) => {
     if (isNearTV && activeModule === null && videoElement) {
         if (k === 'p') { if (videoElement.paused) requestTvPlayback(); else videoElement.pause(); }
         if (k === 'm') { videoElement.muted = !videoElement.muted; syncTvMuteLabel(); }
+    }
+    if (isNearRadio && activeModule === null && k === 'r') {
+        toggleRadioPlayback();
     }
 });
 
@@ -834,25 +1055,48 @@ function animate() {
 
         const distToBook = player.position.distanceTo(shelf.position);
         const distToTable = player.position.distanceTo(partyTableGroup.position);
+        const distToRadio = player.position.distanceTo(bedsideTableGroup.position);
+        const distToPaint = player.position.distanceTo(easelGroup.position);
 
         if (distToBook <= interactionRadius) {
-            isNearCake = false;
+            isNearCake = false; isNearRadio = false; isNearPaint = false;
             if (!isNearBook) { 
                 isNearBook = true; 
                 if(interactionPrompt) { interactionPrompt.innerHTML = "PRESSIONE [ E ] PARA LER | [ L ] ABAJUR"; interactionPrompt.classList.add('visible'); }
                 if(cursorReticle) cursorReticle.classList.add('active'); 
                 gsap.to(coverMat, { emissiveIntensity: 1.5, duration: 0.3 }); 
             }
+        } else if (distToRadio <= 0.95) {
+            isNearBook = false; isNearCake = false; isNearPaint = false;
+            gsap.to(coverMat, { emissiveIntensity: 0.2, duration: 0.3 });
+            if (!isNearRadio) {
+                isNearRadio = true;
+                if(interactionPrompt) {
+                    interactionPrompt.innerHTML = radioAudioElement && !radioAudioElement.paused ? "PRESSIONE [ R ] PARA DESLIGAR O RÁDIO" : "PRESSIONE [ R ] PARA LIGAR O RÁDIO";
+                    interactionPrompt.classList.add('visible');
+                }
+                if(cursorReticle) cursorReticle.classList.add('active');
+            } else if (interactionPrompt) {
+                interactionPrompt.innerHTML = radioAudioElement && !radioAudioElement.paused ? "PRESSIONE [ R ] PARA DESLIGAR O RÁDIO" : "PRESSIONE [ R ] PARA LIGAR O RÁDIO";
+            }
+        } else if (distToPaint <= 1.25) {
+            isNearBook = false; isNearCake = false; isNearRadio = false;
+            gsap.to(coverMat, { emissiveIntensity: 0.2, duration: 0.3 });
+            if (!isNearPaint) {
+                isNearPaint = true;
+                if (interactionPrompt) { interactionPrompt.innerHTML = "PRESSIONE [ E ] PARA PINTAR"; interactionPrompt.classList.add('visible'); }
+                if (cursorReticle) cursorReticle.classList.add('active');
+            }
         } else if (distToTable <= interactionRadius + 0.5) {
-            isNearBook = false;
+            isNearBook = false; isNearRadio = false; isNearPaint = false;
             if (!isNearCake) {
                 isNearCake = true;
                 if(interactionPrompt) { interactionPrompt.innerHTML = "PRESSIONE [ C ] PARA CANTAR PARABÉNS"; interactionPrompt.classList.add('visible'); }
                 if(cursorReticle) cursorReticle.classList.add('active'); 
             }
         } else {
-            if (isNearBook || isNearCake) { 
-                isNearBook = false; isNearCake = false;
+            if (isNearBook || isNearCake || isNearRadio || isNearPaint) { 
+                isNearBook = false; isNearCake = false; isNearRadio = false; isNearPaint = false;
                 if(interactionPrompt) interactionPrompt.classList.remove('visible'); 
                 if(cursorReticle) cursorReticle.classList.remove('active'); 
                 gsap.to(coverMat, { emissiveIntensity: 0.2, duration: 0.3 }); 

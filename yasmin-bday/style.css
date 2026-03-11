@@ -175,6 +175,114 @@ body::after {
 .module-close-btn { position: absolute; top: 30px; left: 30px; z-index: 100000; background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 10px 20px; font-family: 'Lora', serif; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.1em; border-radius: 4px; cursor: pointer; backdrop-filter: blur(5px); transition: background 0.3s ease; }
 .module-close-btn:hover { background: rgba(223, 171, 160, 0.4); border-color: #dfaba0; }
 
+#subsystem-paint {
+    background:
+    radial-gradient(circle at 18% 20%, rgba(255, 215, 180, 0.16), transparent 30%),
+    radial-gradient(circle at 85% 22%, rgba(129, 165, 255, 0.14), transparent 28%),
+    linear-gradient(180deg, rgba(19, 23, 34, 0.98), rgba(7, 10, 15, 0.98));
+}
+.paint-studio-shell {
+    position: absolute;
+    inset: 90px 40px 36px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    align-items: center;
+    justify-content: center;
+}
+.paint-studio-header {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.paint-studio-title {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(1.8rem, 1.3rem + 1.6vw, 2.6rem);
+    color: #f4e3c5;
+    font-style: italic;
+}
+.paint-studio-subtitle {
+    font-family: 'Lora', serif;
+    font-size: 0.88rem;
+    color: rgba(244, 227, 197, 0.82);
+    letter-spacing: 0.04em;
+}
+.paint-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 18px;
+    border-radius: 18px;
+    background: rgba(255, 249, 241, 0.08);
+    border: 1px solid rgba(255, 234, 211, 0.14);
+    backdrop-filter: blur(8px);
+}
+.paint-colors {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+.paint-color {
+    width: 30px;
+    height: 30px;
+    border-radius: 999px;
+    border: 2px solid rgba(255,255,255,0.45);
+    background: var(--swatch);
+    cursor: pointer;
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.paint-color.is-active {
+    transform: scale(1.12);
+    border-color: #ffe6c7;
+    box-shadow: 0 0 0 4px rgba(255, 214, 164, 0.18);
+}
+.paint-brush-control {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    font-family: 'Lora', serif;
+    font-size: 0.82rem;
+    color: #f4e3c5;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.paint-brush-control input {
+    width: 140px;
+}
+.paint-action-btn {
+    border: 1px solid rgba(255,255,255,0.16);
+    border-radius: 999px;
+    background: linear-gradient(180deg, rgba(223, 171, 160, 0.96), rgba(173, 118, 97, 0.96));
+    color: #fff;
+    font-family: 'Lora', serif;
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 11px 18px;
+    cursor: pointer;
+}
+.paint-canvas-frame {
+    width: min(88vw, 980px);
+    height: min(68vh, 680px);
+    background: linear-gradient(135deg, #f6eadc, #e6d7c8);
+    padding: 16px;
+    border-radius: 24px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.34);
+}
+#paint-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    background: #fffdf8;
+    border-radius: 18px;
+    cursor: crosshair;
+    touch-action: none;
+}
+
 /* ==========================================================================
    BOOK UI & TYPOGRAPHY
    ========================================================================== */
@@ -353,6 +461,10 @@ body::after {
 @media (max-width: 767px) {
     .book-cover-wrapper, .content { width: min(86vw, 350px); height: min(70vh, 500px); }
     #tv-interaction-prompt { flex-direction: column; gap: 10px; bottom: 10%; }
+    .paint-studio-shell { inset: 86px 14px 20px; }
+    .paint-toolbar { gap: 10px; padding: 10px 12px; }
+    .paint-brush-control { width: 100%; justify-content: center; }
+    .paint-canvas-frame { width: 100%; height: min(62vh, 520px); padding: 10px; }
 }
 
 @media (pointer: coarse), (max-width: 900px) {
@@ -371,6 +483,7 @@ body::after {
     #mobile-fullscreen-toggle,
     #room-darkness-overlay,
     .module-close-btn,
+    .paint-toolbar,
     #hud-message-overlay,
     #close-immersion {
         backdrop-filter: none;

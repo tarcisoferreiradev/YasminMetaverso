@@ -21,6 +21,7 @@
 <body>
 
     <video id="tv-video" src="./yasmin-bday/videos/Looney Tunes.mp4" loop autoplay muted playsinline preload="auto" crossorigin="anonymous" style="display: none;"></video>
+    <audio id="radio-audio" src="./yasmin-bday/videos/Looney Tunes.mp4" loop preload="auto" crossorigin="anonymous" style="display: none;"></audio>
 
     <canvas id="webgl-canvas"></canvas>
 
@@ -352,6 +353,38 @@
                     <div class="page-number">20</div>
                 </article>
             </section>
+        </div>
+    </section>
+
+    <section id="subsystem-paint" class="isolated-module" aria-hidden="true">
+        <button class="module-close-btn" id="close-paint-module" aria-label="Retornar ao Quarto">✕ Voltar para o Quarto</button>
+        <div class="paint-studio-shell">
+            <div class="paint-studio-header">
+                <h2 class="paint-studio-title">Ateliê da Yasmin</h2>
+                <p class="paint-studio-subtitle">Pinta aqui do teu jeito. O que você fizer aparece no quadro do canto.</p>
+            </div>
+
+            <div class="paint-toolbar">
+                <div class="paint-colors" role="group" aria-label="Escolher cor">
+                    <button type="button" class="paint-color is-active" data-color="#1f4fbf" style="--swatch:#1f4fbf;" aria-label="Azul"></button>
+                    <button type="button" class="paint-color" data-color="#d9534f" style="--swatch:#d9534f;" aria-label="Vermelho"></button>
+                    <button type="button" class="paint-color" data-color="#f3bf3a" style="--swatch:#f3bf3a;" aria-label="Amarelo"></button>
+                    <button type="button" class="paint-color" data-color="#1f8c5b" style="--swatch:#1f8c5b;" aria-label="Verde"></button>
+                    <button type="button" class="paint-color" data-color="#241915" style="--swatch:#241915;" aria-label="Marrom escuro"></button>
+                    <button type="button" class="paint-color" data-color="#ffffff" style="--swatch:#ffffff;" aria-label="Branco"></button>
+                </div>
+
+                <label class="paint-brush-control" for="paint-brush-size">
+                    Pincel
+                    <input id="paint-brush-size" type="range" min="4" max="28" value="10">
+                </label>
+
+                <button type="button" id="paint-clear" class="paint-action-btn">Limpar Tela</button>
+            </div>
+
+            <div class="paint-canvas-frame">
+                <canvas id="paint-canvas" width="1024" height="768" aria-label="Tela para pintar"></canvas>
+            </div>
         </div>
     </section>
 

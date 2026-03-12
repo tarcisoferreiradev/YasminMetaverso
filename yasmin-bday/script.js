@@ -14,19 +14,19 @@ import gsap from 'gsap';
 const isMobileDevice = window.matchMedia('(pointer: coarse), (max-width: 900px)').matches;
 const textureSize = isMobileDevice ? 512 : 1024;
 const textureAnisotropy = isMobileDevice ? 1 : 4;
-const maxPixelRatio = isMobileDevice ? 1.25 : 2;
+const maxPixelRatio = isMobileDevice ? 1 : 1.5;
 const decorativeCastShadow = !isMobileDevice;
 
 const canvas = document.getElementById('webgl-canvas');
 const paintCanvasElement = document.getElementById('paint-canvas');
 const paintContext = paintCanvasElement ? paintCanvasElement.getContext('2d') : null;
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: !isMobileDevice, powerPreference: 'high-performance' });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxPixelRatio));
 
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.shadowMap.autoUpdate = !isMobileDevice;
+renderer.shadowMap.autoUpdate = false;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
@@ -64,8 +64,8 @@ const pointLight = new THREE.PointLight(0xffeedd, 0, 15);
 pointLight.position.set(0, 4, 0); 
 pointLight.castShadow = true; 
 pointLight.shadow.bias = -0.001;
-pointLight.shadow.mapSize.width = isMobileDevice ? 512 : 2048;
-pointLight.shadow.mapSize.height = isMobileDevice ? 512 : 2048;
+pointLight.shadow.mapSize.width = isMobileDevice ? 512 : 1024;
+pointLight.shadow.mapSize.height = isMobileDevice ? 512 : 1024;
 scene.add(pointLight);
 
 // ==========================================
@@ -534,7 +534,7 @@ scene.add(lampGroup);
 
 const lampLight = new THREE.PointLight(0xffaa44, 0, 7, 1.5); 
 lampLight.position.set(-3.6, 1.0, 0.4); 
-lampLight.castShadow = !isMobileDevice; 
+lampLight.castShadow = false; // Removido cast de sombra para poupar 6 render passes na GPU
 lampLight.shadow.bias = -0.002;
 scene.add(lampLight);
 
@@ -1157,6 +1157,8 @@ const cinematicLookTarget = new THREE.Vector3(0, 1.6, 0);
 
 function executeCinematicIntro() {
     isCinematicIntro = true;
+    updateFloatingInteractionButtons(); // Oculta todos os botões fisicamente antes de silenciar a atualização de DOM no loop
+
     if(joyZone) joyZone.style.opacity = '0';
     camera.position.copy(introPath.getPoint(0));
     
@@ -1550,7 +1552,10 @@ const moveDirection = new THREE.Vector3(); const forward = new THREE.Vector3(); 
 const previousPlayerPosition = new THREE.Vector3();
 
 function refreshFloatingButtonsIfNeeded() {
-    const uiSignature = `${isRoomLit}-${activeModule ?? 'none'}-${isCinematicIntro}-${tvPrompt?.classList.contains('visible') ? 'tv-open' : 'tv-closed'}`;
+    // Evita recalcular interações DOM se não for necessário ou se estivermos na cinemática/apresentação (menos esforço de CPU/60fps garantido)
+    if (isCinematicIntro) return;
+
+    const uiSignature = `${isRoomLit}-${activeModule ?? 'none'}-${tvPrompt?.classList.contains('visible') ? 'tv-open' : 'tv-closed'}`;
     const cameraMoved = lastCameraPosition.distanceToSquared(camera.position) > 0.000001 || 1 - Math.abs(lastCameraQuaternion.dot(camera.quaternion)) > 0.000001;
     if (!floatingButtonsNeedUpdate && !cameraMoved && uiSignature === lastUiSignature) return;
 

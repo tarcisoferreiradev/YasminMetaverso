@@ -13,14 +13,16 @@ import gsap from 'gsap';
 // ==========================================
 const isMobileDevice = window.matchMedia('(pointer: coarse), (max-width: 900px)').matches;
 const textureSize = isMobileDevice ? 512 : 1024;
-const textureAnisotropy = isMobileDevice ? 1 : 4;
+// Eleva a textura anisotrópica ao máximo absoluto da Placa de Vídeo. Dá uma nitidez absurda no chão e ângulos rasos sem perda perceptível de performance em GPUs modernas.
+const textureAnisotropy = isMobileDevice ? 4 : 16;
 const maxPixelRatio = isMobileDevice ? 1 : 1.5;
 const decorativeCastShadow = !isMobileDevice;
 
 const canvas = document.getElementById('webgl-canvas');
 const paintCanvasElement = document.getElementById('paint-canvas');
 const paintContext = paintCanvasElement ? paintCanvasElement.getContext('2d') : null;
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+// Usando MSAA nativo da GPU para suavizar as bordas de graça (muito mais barato que aumentar Resolução Raw)
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: !isMobileDevice, powerPreference: 'high-performance' });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxPixelRatio));
 
@@ -57,15 +59,19 @@ if (paintCanvasElement && paintContext) {
 // ==========================================
 // 2. AUDIO SYSTEM & ILLUMINATION
 // ==========================================
-const ambientLight = new THREE.AmbientLight(0xffffff, 0); 
+// Substituindo luz ambiente opaca por HemisphereLight (custo zero, mais realista adicionando "rebatimento" de cor do piso e teto)
+const ambientLight = new THREE.HemisphereLight(0xfff5e6, 0x1c1924, 0); 
 scene.add(ambientLight);
 
 const pointLight = new THREE.PointLight(0xffeedd, 0, 15); 
 pointLight.position.set(0, 4, 0); 
 pointLight.castShadow = true; 
 pointLight.shadow.bias = -0.001;
-pointLight.shadow.mapSize.width = isMobileDevice ? 512 : 1024;
-pointLight.shadow.mapSize.height = isMobileDevice ? 512 : 1024;
+// Qualidade de Sombra "Gratuita" (como autoUpdate = false, renderiza apenas 1 vez, logo podemos usar 4K de graça no PC!)
+pointLight.shadow.mapSize.width = isMobileDevice ? 1024 : 4096;
+pointLight.shadow.mapSize.height = isMobileDevice ? 1024 : 4096;
+// Ajuste para deixar a sombra ligeiramente mais suave e natural nas bordas
+pointLight.shadow.radius = 1.5;
 scene.add(pointLight);
 
 // ==========================================

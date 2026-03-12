@@ -21,7 +21,7 @@
 <body>
 
     <video id="tv-video" src="./yasmin-bday/videos/Looney Tunes.mp4" loop autoplay muted playsinline preload="auto" crossorigin="anonymous" style="display: none;"></video>
-    <audio id="radio-audio" src="./yasmin-bday/videos/Looney Tunes.mp4" loop preload="auto" crossorigin="anonymous" style="display: none;"></audio>
+    <audio id="radio-audio" preload="auto" crossorigin="anonymous" style="display: none;"></audio>
 
     <canvas id="webgl-canvas"></canvas>
 
@@ -33,10 +33,20 @@
         </div>
     </div>
 
-    <div id="cursor-reticle"></div>
+    <div id="world-interaction-layer" aria-hidden="true">
+        <button id="action-book" class="floating-action-btn" type="button">Clique para ler</button>
+        <button id="action-letter" class="floating-action-btn" type="button">Clique para cartinha</button>
+        <button id="action-radio" class="floating-action-btn" type="button">Clique para rádio</button>
+        <button id="action-gift" class="floating-action-btn" type="button">Clique para presente</button>
+        <button id="action-paint" class="floating-action-btn" type="button">Clique para pintar</button>
+        <button id="action-cake" class="floating-action-btn" type="button">Clique para cantar</button>
+        <button id="action-tv" class="floating-action-btn" type="button">Clique para TV</button>
+    </div>
 
-    <div id="interaction-prompt" role="button">
-        Pressione [ E ] ou Toque para Ler
+    <div id="gift-surprise-overlay" aria-hidden="true">
+        <div class="gift-flower-bloom">🌷</div>
+        <div class="gift-flower-message">Uma flor para outra flor</div>
+        <div id="gift-petal-rain"></div>
     </div>
 
     <div id="tv-interaction-prompt">
@@ -78,8 +88,8 @@
 
         <div id="book-container">
             <section class="page hero">
-                <div class="book-cover-wrapper">
-                    <div class="book-cover-front"><h1 class="sr-only">Yasmin - As Metamorfoses</h1></div>
+                <div class="book-cover-wrapper" aria-label="Capa do livro da Yasmin">
+                    <div class="book-cover-front"></div>
                     <div class="book-cover-inside"></div>
                     <div class="book-spine"></div>
                 </div>
@@ -356,6 +366,28 @@
         </div>
     </section>
 
+    <section id="subsystem-letter" class="isolated-module" aria-hidden="true">
+        <button class="module-close-btn" id="close-letter-module" aria-label="Retornar ao Quarto">✕ Voltar para o Quarto</button>
+        <div class="letter-shell">
+            <article class="letter-card">
+                <header class="letter-header">
+                    <p class="letter-meta"><strong>De:</strong> Tarciso</p>
+                    <p class="letter-meta"><strong>Para:</strong> Yasmin</p>
+                </header>
+
+                <div class="letter-divider"></div>
+
+                <div class="letter-body">
+                    <p>Bom, agora que estamos aqui, se você fez o que mandei isso aqui será a última coisa que você vai ler desse humilde presente. Enfim, saindo um pouco dessa humilhação que gosto fazer você passar, vamos falar sério agora, aqui nesse "metaverso" eu tentei ao máximo colocar as coisas que você gosta, tinha muita coisa que eu gostaria de ter feito, não vou falar exatamente oque, mas enfim.</p>
+
+                    <p>No fim das contas foi um trabalho muito satisfatório de ser feito, e valeu cada segundo dedicado aqui, afinal foi por você. Tu se tornou alguém muito especial pra mim, e em sla, 1 mês? Nossa senhora, um mês. Parece até que foi ontem, que loucura o tempo né, eu tenho tanta coisa que queria simplesmente falar pra tu, mas não vou falar disso no seu GRANDE DIA, você já tá ficando uma velha gagá toda emendada, cuidado pra não ficar demente também.</p>
+
+                    <p>E agora que já é uma coroa pode ir parando de me dar coice sua cavala maldosa😘 Aproveite seu dia minha linda, muitos anos de vida pra senhora, e trate de viver muitos anos pra eu n ter q ser o viúvo que fica capinando cova, felicidades meu bem 🤍🤍</p>
+                </div>
+            </article>
+        </div>
+    </section>
+
     <section id="subsystem-paint" class="isolated-module" aria-hidden="true">
         <button class="module-close-btn" id="close-paint-module" aria-label="Retornar ao Quarto">✕ Voltar para o Quarto</button>
         <div class="paint-studio-shell">
@@ -370,6 +402,12 @@
                     <button type="button" class="paint-color" data-color="#d9534f" style="--swatch:#d9534f;" aria-label="Vermelho"></button>
                     <button type="button" class="paint-color" data-color="#f3bf3a" style="--swatch:#f3bf3a;" aria-label="Amarelo"></button>
                     <button type="button" class="paint-color" data-color="#1f8c5b" style="--swatch:#1f8c5b;" aria-label="Verde"></button>
+                    <button type="button" class="paint-color" data-color="#7a4bc2" style="--swatch:#7a4bc2;" aria-label="Lilás"></button>
+                    <button type="button" class="paint-color" data-color="#ff7eb6" style="--swatch:#ff7eb6;" aria-label="Rosa"></button>
+                    <button type="button" class="paint-color" data-color="#ff8b3d" style="--swatch:#ff8b3d;" aria-label="Laranja"></button>
+                    <button type="button" class="paint-color" data-color="#18a9b9" style="--swatch:#18a9b9;" aria-label="Turquesa"></button>
+                    <button type="button" class="paint-color" data-color="#7a5538" style="--swatch:#7a5538;" aria-label="Caramelo"></button>
+                    <button type="button" class="paint-color" data-color="#101010" style="--swatch:#101010;" aria-label="Preto"></button>
                     <button type="button" class="paint-color" data-color="#241915" style="--swatch:#241915;" aria-label="Marrom escuro"></button>
                     <button type="button" class="paint-color" data-color="#ffffff" style="--swatch:#ffffff;" aria-label="Branco"></button>
                 </div>
@@ -380,6 +418,7 @@
                 </label>
 
                 <button type="button" id="paint-clear" class="paint-action-btn">Limpar Tela</button>
+                <button type="button" id="paint-download" class="paint-action-btn">Baixar Arte</button>
             </div>
 
             <div class="paint-canvas-frame">

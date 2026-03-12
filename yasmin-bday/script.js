@@ -14,19 +14,27 @@ import gsap from 'gsap';
 const isMobileDevice = window.matchMedia('(pointer: coarse), (max-width: 900px)').matches;
 const textureSize = isMobileDevice ? 512 : 1024;
 const textureAnisotropy = isMobileDevice ? 1 : 4;
+const maxPixelRatio = isMobileDevice ? 1.25 : 2;
+const decorativeCastShadow = !isMobileDevice;
 
 const canvas = document.getElementById('webgl-canvas');
 const paintCanvasElement = document.getElementById('paint-canvas');
 const paintContext = paintCanvasElement ? paintCanvasElement.getContext('2d') : null;
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: !isMobileDevice, powerPreference: 'high-performance' });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxPixelRatio));
 
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.autoUpdate = !isMobileDevice;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
+
+function requestShadowUpdate() {
+    if (!renderer.shadowMap.enabled) return;
+    renderer.shadowMap.needsUpdate = true;
+}
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x141924);
@@ -49,14 +57,6 @@ if (paintCanvasElement && paintContext) {
 // ==========================================
 // 2. AUDIO SYSTEM & ILLUMINATION
 // ==========================================
-const birthdayMusic = new THREE.Audio(audioListener);
-const audioLoader = new THREE.AudioLoader();
-audioLoader.load('./audio/parabens.mp3', (buffer) => {
-    birthdayMusic.setBuffer(buffer);
-    birthdayMusic.setLoop(false);
-    birthdayMusic.setVolume(0.7);
-});
-
 const ambientLight = new THREE.AmbientLight(0xffffff, 0); 
 scene.add(ambientLight);
 
@@ -64,8 +64,8 @@ const pointLight = new THREE.PointLight(0xffeedd, 0, 15);
 pointLight.position.set(0, 4, 0); 
 pointLight.castShadow = true; 
 pointLight.shadow.bias = -0.001;
-pointLight.shadow.mapSize.width = isMobileDevice ? 1024 : 2048;
-pointLight.shadow.mapSize.height = isMobileDevice ? 1024 : 2048;
+pointLight.shadow.mapSize.width = isMobileDevice ? 512 : 2048;
+pointLight.shadow.mapSize.height = isMobileDevice ? 512 : 2048;
 scene.add(pointLight);
 
 // ==========================================
@@ -156,23 +156,12 @@ const wallTexture = createProceduralTexture((context, width, height) => {
 });
 wallTexture.repeat.set(0.9, 0.9);
 
-const ceilingTexture = createProceduralTexture((context, width, height) => {
-    const gradient = context.createRadialGradient(width * 0.5, height * 0.45, 40, width * 0.5, height * 0.5, width * 0.7);
-    gradient.addColorStop(0, '#f5efe7');
-    gradient.addColorStop(1, '#baa79a');
-    context.fillStyle = gradient;
-    context.fillRect(0, 0, width, height);
-
-    context.strokeStyle = 'rgba(120, 95, 80, 0.06)';
-    context.lineWidth = 2;
-    for (let index = 0; index < 55; index += 1) {
-        context.beginPath();
-        context.moveTo(Math.random() * width, Math.random() * height);
-        context.lineTo(Math.random() * width, Math.random() * height);
-        context.stroke();
-    }
-});
-ceilingTexture.repeat.set(1.3, 1.3);
+const ceilingTexture = new THREE.TextureLoader().load('./yasmin-bday/imagens/estrelas.png');
+ceilingTexture.colorSpace = THREE.SRGBColorSpace;
+ceilingTexture.wrapS = THREE.RepeatWrapping;
+ceilingTexture.wrapT = THREE.RepeatWrapping;
+ceilingTexture.repeat.set(1, 1);
+ceilingTexture.anisotropy = Math.min(renderer.capabilities.getMaxAnisotropy(), textureAnisotropy);
 
 // ==========================================
 // 4. ARCHITECTURE (Quarto 8x8)
@@ -180,7 +169,7 @@ ceilingTexture.repeat.set(1.3, 1.3);
 const roomSize = { width: 8, height: 5, depth: 8 };
 
 const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(roomSize.width, roomSize.depth, 64, 64), 
+    new THREE.PlaneGeometry(roomSize.width, roomSize.depth, 1, 1), 
     new THREE.MeshStandardMaterial({ map: floorTexture, color: 0xffffff, roughness: 0.1, metalness: 0.05 })
 );
 floor.rotation.x = -Math.PI / 2; 
@@ -221,7 +210,7 @@ const mattress = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.25, 2.0), new THREE
 mattress.position.set(0, 0.425, 0); mattress.castShadow = true; mattress.receiveShadow = true;
 const pillow = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.15, 0.4), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8 }));
 pillow.position.set(0, 0.575, 0.7); pillow.castShadow = true;
-const blanket = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.05, 1.3), new THREE.MeshStandardMaterial({ color: 0x887660, roughness: 0.9 }));
+const blanket = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.05, 1.3), new THREE.MeshStandardMaterial({ color: 0xd78aa6, roughness: 0.88 }));
 blanket.position.set(0, 0.56, -0.35); blanket.castShadow = true;
 bedGroup.add(bedFrame, headboard, mattress, pillow, blanket);
 bedGroup.position.set(0, 0, 2.95); 
@@ -277,10 +266,105 @@ bedsideTableGroup.add(radioGroup);
 bedsideTableGroup.position.set(1.08, 0, 3.42);
 scene.add(bedsideTableGroup);
 
+const bookshelfGroup = new THREE.Group();
+const bookshelfMat = new THREE.MeshStandardMaterial({ color: 0x5a3f2e, roughness: 0.82 });
+const shelfBoardMat = new THREE.MeshStandardMaterial({ color: 0x6a4b36, roughness: 0.78 });
+const bookColors = [0xc94f6d, 0x4567b7, 0xe2b34a, 0x7d5fb2, 0x3f8f6b, 0xf2e6d6];
+
+const shelfSideLeft = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.25, 0.62), bookshelfMat);
+shelfSideLeft.position.set(-0.32, 1.125, 0);
+shelfSideLeft.castShadow = true;
+shelfSideLeft.receiveShadow = true;
+bookshelfGroup.add(shelfSideLeft);
+
+const shelfSideRight = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.25, 0.62), bookshelfMat);
+shelfSideRight.position.set(0.32, 1.125, 0);
+shelfSideRight.castShadow = true;
+shelfSideRight.receiveShadow = true;
+bookshelfGroup.add(shelfSideRight);
+
+const shelfTop = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.08, 0.62), shelfBoardMat);
+shelfTop.position.set(0, 2.22, 0);
+shelfTop.castShadow = true;
+shelfTop.receiveShadow = true;
+bookshelfGroup.add(shelfTop);
+
+const shelfBottom = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.08, 0.62), shelfBoardMat);
+shelfBottom.position.set(0, 0.04, 0);
+shelfBottom.castShadow = true;
+shelfBottom.receiveShadow = true;
+bookshelfGroup.add(shelfBottom);
+
+[-0.52, 0.12, 0.78, 1.42].forEach((levelY) => {
+    const shelfBoard = new THREE.Mesh(new THREE.BoxGeometry(0.64, 0.06, 0.58), shelfBoardMat);
+    shelfBoard.position.set(0, levelY, 0);
+    shelfBoard.castShadow = true;
+    shelfBoard.receiveShadow = true;
+    bookshelfGroup.add(shelfBoard);
+});
+
+[-0.52, 0.12, 0.78, 1.42].forEach((levelY, shelfIndex) => {
+    for (let index = 0; index < 7; index += 1) {
+        const bookHeight = 0.22 + (index % 3) * 0.08;
+        const bookDepth = 0.18 + (index % 2) * 0.02;
+        const book = new THREE.Mesh(
+            new THREE.BoxGeometry(0.06, bookHeight, bookDepth),
+            new THREE.MeshStandardMaterial({ color: bookColors[(shelfIndex + index) % bookColors.length], roughness: 0.76 })
+        );
+        book.position.set(-0.2 + index * 0.065, levelY + 0.03 + (bookHeight / 2), -0.02 + ((index % 2) * 0.04 - 0.02));
+        book.rotation.z = (index % 2 === 0 ? -1 : 1) * 0.04;
+        book.castShadow = true;
+        bookshelfGroup.add(book);
+    }
+    const stackedBook = new THREE.Mesh(
+        new THREE.BoxGeometry(0.16, 0.05, 0.24),
+        new THREE.MeshStandardMaterial({ color: bookColors[(shelfIndex + 2) % bookColors.length], roughness: 0.78 })
+    );
+    stackedBook.position.set(0.19, levelY + 0.085, 0.08);
+    stackedBook.castShadow = true;
+    stackedBook.rotation.y = 0.15;
+    bookshelfGroup.add(stackedBook);
+});
+
+bookshelfGroup.position.set(3.56, 0, 2.85);
+bookshelfGroup.rotation.y = -Math.PI / 2;
+scene.add(bookshelfGroup);
+
 const radioAudioElement = document.getElementById('radio-audio');
+const radioPlaylist = [
+    './yasmin-bday/musicas/14 Bis - Todo azul do mar.mp3',
+    './yasmin-bday/musicas/Belchior - Coração selvagem.mp3',
+    './yasmin-bday/musicas/Billy Joel - Vienna.mp3',
+    './yasmin-bday/musicas/Djavan - Encontrar-Te.mp3',
+    './yasmin-bday/musicas/Djavan - Pétala.mp3',
+    './yasmin-bday/musicas/Djavan - Ventos do Norte.mp3'
+];
+let currentRadioTrackIndex = 0;
+
+function loadRadioTrack(trackIndex) {
+    if (!radioAudioElement || radioPlaylist.length === 0) return;
+
+    currentRadioTrackIndex = (trackIndex + radioPlaylist.length) % radioPlaylist.length;
+    const nextTrack = radioPlaylist[currentRadioTrackIndex];
+    if (radioAudioElement.getAttribute('src') === nextTrack) return;
+
+    radioAudioElement.src = nextTrack;
+    radioAudioElement.load();
+}
+
 if (radioAudioElement) {
     radioAudioElement.volume = 0.55;
     radioAudioElement.preload = 'auto';
+    radioAudioElement.loop = false;
+    loadRadioTrack(0);
+    radioAudioElement.addEventListener('ended', () => {
+        console.log("Música terminou. Tocando a próxima: ", radioPlaylist[(currentRadioTrackIndex + 1) % radioPlaylist.length]);
+        loadRadioTrack(currentRadioTrackIndex + 1);
+        const playPromise = radioAudioElement.play();
+        if (playPromise && typeof playPromise.catch === 'function') {
+            playPromise.catch((error) => console.warn('Nao foi possivel avancar a playlist do radio:', error));
+        }
+    });
 }
 
 let radioPositionalAudio = null;
@@ -337,9 +421,12 @@ function syncTvMuteLabel() {
 }
 
 function toggleRadioPlayback() {
-    if (!radioAudioElement) return;
+    if (!radioAudioElement || radioPlaylist.length === 0) return;
 
     if (radioAudioElement.paused) {
+        if (!radioAudioElement.getAttribute('src')) {
+            loadRadioTrack(currentRadioTrackIndex);
+        }
         const playPromise = radioAudioElement.play();
         if (playPromise && typeof playPromise.catch === 'function') {
             playPromise.catch((error) => console.warn('Reproducao do radio bloqueada:', error));
@@ -394,8 +481,38 @@ const bookMaterials = [pageMat, spineMat, coverMat, spineMat, pageMat, pageMat];
 const bookMesh = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.11, 0.8), bookMaterials); 
 bookMesh.position.set(-3.5, 0.75, -0.5); 
 bookMesh.rotation.y = Math.PI / 6; 
-bookMesh.castShadow = true; 
+bookMesh.castShadow = decorativeCastShadow; 
 scene.add(bookMesh);
+
+const letterGroup = new THREE.Group();
+const letterPaper = new THREE.Mesh(
+    new THREE.BoxGeometry(0.3, 0.02, 0.22),
+    new THREE.MeshStandardMaterial({ color: 0xf8f1e4, roughness: 0.92 })
+);
+letterPaper.castShadow = decorativeCastShadow;
+letterPaper.receiveShadow = true;
+letterGroup.add(letterPaper);
+
+const letterFold = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.018, 0.018, 0.24, 3),
+    new THREE.MeshStandardMaterial({ color: 0xefe1cd, roughness: 0.88 })
+);
+letterFold.rotation.z = Math.PI / 2;
+letterFold.rotation.x = Math.PI;
+letterFold.position.set(0, 0.016, -0.015);
+letterGroup.add(letterFold);
+
+const waxSeal = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.03, 0.03, 0.012, 18),
+    new THREE.MeshStandardMaterial({ color: 0xa01f3d, roughness: 0.45, metalness: 0.08 })
+);
+waxSeal.rotation.x = Math.PI / 2;
+waxSeal.position.set(0.07, 0.018, 0.02);
+letterGroup.add(waxSeal);
+
+letterGroup.position.set(-3.68, 0.67, -1.28);
+letterGroup.rotation.set(0.02, -0.3, -0.04);
+scene.add(letterGroup);
 
 const lampGroup = new THREE.Group();
 const lampBase = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.15, 0.05, 16), new THREE.MeshStandardMaterial({ color: 0x111111 }));
@@ -411,7 +528,7 @@ scene.add(lampGroup);
 
 const lampLight = new THREE.PointLight(0xffaa44, 0, 7, 1.5); 
 lampLight.position.set(-3.6, 1.0, 0.4); 
-lampLight.castShadow = true; 
+lampLight.castShadow = !isMobileDevice; 
 lampLight.shadow.bias = -0.002;
 scene.add(lampLight);
 
@@ -442,6 +559,208 @@ const frame5 = createPictureFrame(`${assetBasePath}/yasmin5.jpeg`, 0.9, 1.2);
 frame5.position.set(3.95, 2.0, 0); frame5.rotation.y = -Math.PI / 2; scene.add(frame5);
 const frame6 = createPictureFrame(`${assetBasePath}/yasmin6.jpeg`, 0.9, 1.2);
 frame6.position.set(3.95, 2.0, -1.2); frame6.rotation.y = -Math.PI / 2; scene.add(frame6);
+const frame9 = createPictureFrame(`${assetBasePath}/yasmin9.jpeg`, 1.05, 1.35);
+frame9.position.set(-2.75, 2.18, -3.95); frame9.rotation.y = 0; scene.add(frame9);
+
+function createGiftBox(width, height, depth, boxColor, ribbonColor) {
+    const giftGroup = new THREE.Group();
+    const box = new THREE.Mesh(
+        new THREE.BoxGeometry(width, height, depth),
+        new THREE.MeshStandardMaterial({ color: boxColor, roughness: 0.62, metalness: 0.08 })
+    );
+    box.position.y = height / 2;
+    box.castShadow = true;
+    box.receiveShadow = true;
+    giftGroup.add(box);
+
+    const ribbonMat = new THREE.MeshStandardMaterial({ color: ribbonColor, roughness: 0.38, metalness: 0.18 });
+    const ribbonBandX = new THREE.Mesh(new THREE.BoxGeometry(width * 0.18, height + 0.02, depth + 0.02), ribbonMat);
+    ribbonBandX.position.y = height / 2;
+    giftGroup.add(ribbonBandX);
+
+    const ribbonBandZ = new THREE.Mesh(new THREE.BoxGeometry(width + 0.02, height + 0.02, depth * 0.18), ribbonMat);
+    ribbonBandZ.position.y = height / 2;
+    giftGroup.add(ribbonBandZ);
+
+    const bowLeft = new THREE.Mesh(new THREE.TorusGeometry(Math.min(width, depth) * 0.16, 0.02, 10, 18), ribbonMat);
+    bowLeft.rotation.x = Math.PI / 2;
+    bowLeft.rotation.z = 0.55;
+    bowLeft.position.set(-width * 0.1, height + 0.03, 0);
+    giftGroup.add(bowLeft);
+
+    const bowRight = new THREE.Mesh(new THREE.TorusGeometry(Math.min(width, depth) * 0.16, 0.02, 10, 18), ribbonMat);
+    bowRight.rotation.x = Math.PI / 2;
+    bowRight.rotation.z = -0.55;
+    bowRight.position.set(width * 0.1, height + 0.03, 0);
+    giftGroup.add(bowRight);
+
+    return giftGroup;
+}
+
+function createTulipBouquet() {
+    const flowersGroup = new THREE.Group();
+    const stemMat = new THREE.MeshStandardMaterial({ color: 0x4a8a48, roughness: 0.9 });
+    const leafMat = new THREE.MeshStandardMaterial({ color: 0x72b061, roughness: 0.84 });
+    const tulipColors = [0xd94c7b, 0xf29bb7, 0xe86d95, 0xffb067, 0xf05a88, 0xc94f6d, 0xf6a6c1];
+
+    function createSingleTulip(colorHex) {
+        const tulipGroup = new THREE.Group();
+        const bloomMat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.46, metalness: 0.08 });
+        const stemLength = 0.52;
+
+        const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.011, stemLength, 12), stemMat);
+        stem.rotation.z = Math.PI / 2;
+        stem.position.x = 0.18;
+        stem.castShadow = true;
+        tulipGroup.add(stem);
+
+        const leafLeft = new THREE.Mesh(new THREE.SphereGeometry(0.055, 12, 12), leafMat);
+        leafLeft.scale.set(0.95, 0.18, 0.34);
+        leafLeft.position.set(0.06, 0.035, 0.02);
+        leafLeft.rotation.z = 0.55;
+        leafLeft.rotation.y = 0.25;
+        tulipGroup.add(leafLeft);
+
+        const leafRight = new THREE.Mesh(new THREE.SphereGeometry(0.05, 12, 12), leafMat);
+        leafRight.scale.set(0.88, 0.16, 0.3);
+        leafRight.position.set(0.16, -0.03, -0.015);
+        leafRight.rotation.z = -0.48;
+        leafRight.rotation.y = -0.2;
+        tulipGroup.add(leafRight);
+
+        const bloomGroup = new THREE.Group();
+        bloomGroup.position.set(-0.1, 0, 0);
+
+        const centerBud = new THREE.Mesh(new THREE.SphereGeometry(0.048, 16, 16), bloomMat);
+        centerBud.scale.set(0.78, 1.05, 0.78);
+        bloomGroup.add(centerBud);
+
+        [-0.7, 0, 0.7].forEach((offset, petalIndex) => {
+            const petal = new THREE.Mesh(new THREE.SphereGeometry(0.04, 14, 14), bloomMat);
+            petal.scale.set(0.68, 1.02, 0.46);
+            petal.position.set(Math.sin(offset) * 0.03, 0.012, Math.cos(offset) * 0.02);
+            petal.rotation.z = offset * 0.24;
+            petal.rotation.x = petalIndex === 1 ? -0.08 : 0.1;
+            bloomGroup.add(petal);
+        });
+
+        const tip = new THREE.Mesh(new THREE.ConeGeometry(0.026, 0.052, 5), bloomMat);
+        tip.position.y = 0.045;
+        tip.castShadow = true;
+        bloomGroup.add(tip);
+
+        bloomGroup.rotation.z = -0.28;
+        tulipGroup.add(bloomGroup);
+
+        return tulipGroup;
+    }
+
+    [
+        [-0.16, 0.0, -0.04, -0.15, -1.08],
+        [-0.05, 0.015, 0.02, -0.04, -1.0],
+        [0.06, 0.0, 0.035, 0.08, -1.12],
+        [0.18, 0.015, -0.015, 0.16, -1.02]
+    ].forEach(([x, y, z, yawOffset, layRot], index) => {
+        const tulipGroup = createSingleTulip(tulipColors[index % tulipColors.length]);
+        tulipGroup.position.set(x, y, z);
+        tulipGroup.rotation.z = layRot;
+        tulipGroup.rotation.y = yawOffset;
+        flowersGroup.add(tulipGroup);
+    });
+
+    const petalMat = new THREE.MeshStandardMaterial({ color: 0xf2aac4, roughness: 0.5, metalness: 0.04 });
+    const loosePetalOne = new THREE.Mesh(new THREE.SphereGeometry(0.03, 12, 12), petalMat);
+    loosePetalOne.scale.set(0.85, 0.15, 0.55);
+    loosePetalOne.position.set(-0.02, -0.01, 0.1);
+    loosePetalOne.rotation.set(0.1, 0.3, -0.35);
+    flowersGroup.add(loosePetalOne);
+
+    const loosePetalTwo = new THREE.Mesh(new THREE.SphereGeometry(0.028, 12, 12), petalMat);
+    loosePetalTwo.scale.set(0.8, 0.14, 0.5);
+    loosePetalTwo.position.set(0.14, -0.005, 0.09);
+    loosePetalTwo.rotation.set(-0.08, -0.25, 0.22);
+    flowersGroup.add(loosePetalTwo);
+
+    flowersGroup.scale.set(1, 1, 1);
+    flowersGroup.visible = true;
+    return flowersGroup;
+}
+
+const presentsCornerGroup = new THREE.Group();
+[
+    { size: [0.48, 0.28, 0.46], color: 0x5c7cfa, ribbon: 0xffffff, pos: [-0.44, 0, 0.1], rot: -0.1 },
+    { size: [0.42, 0.26, 0.42], color: 0xff9f43, ribbon: 0x7a1f1f, pos: [0.42, 0, 0.14], rot: 0.12 },
+    { size: [0.34, 0.22, 0.34], color: 0x9b59b6, ribbon: 0xf5e6ff, pos: [-0.08, 0.34, 0.06], rot: -0.18 },
+    { size: [0.3, 0.2, 0.3], color: 0x2ecc71, ribbon: 0xffe082, pos: [0.34, 0.28, -0.02], rot: 0.16 },
+    { size: [0.24, 0.16, 0.24], color: 0xf6c445, ribbon: 0xc03a6b, pos: [-0.36, 0.28, -0.08], rot: -0.22 }
+].forEach((giftData) => {
+    const gift = createGiftBox(...giftData.size, giftData.color, giftData.ribbon);
+    gift.position.set(...giftData.pos);
+    gift.rotation.y = giftData.rot;
+    presentsCornerGroup.add(gift);
+});
+
+const specialGiftGroup = new THREE.Group();
+const specialGiftBase = new THREE.Mesh(
+    new THREE.BoxGeometry(0.62, 0.3, 0.62),
+    new THREE.MeshStandardMaterial({ color: 0xe94f8a, roughness: 0.62, metalness: 0.08 })
+);
+specialGiftBase.position.y = 0.15;
+specialGiftBase.castShadow = true;
+specialGiftBase.receiveShadow = true;
+specialGiftGroup.add(specialGiftBase);
+
+const specialRibbonMat = new THREE.MeshStandardMaterial({ color: 0xf8df6a, roughness: 0.34, metalness: 0.18 });
+const specialRibbonX = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.32, 0.64), specialRibbonMat);
+specialRibbonX.position.y = 0.16;
+specialGiftGroup.add(specialRibbonX);
+const specialRibbonZ = new THREE.Mesh(new THREE.BoxGeometry(0.64, 0.32, 0.11), specialRibbonMat);
+specialRibbonZ.position.y = 0.16;
+specialGiftGroup.add(specialRibbonZ);
+
+const specialGiftLidPivot = new THREE.Group();
+specialGiftLidPivot.position.set(0, 0.3, -0.31);
+specialGiftGroup.add(specialGiftLidPivot);
+
+const specialGiftLid = new THREE.Mesh(
+    new THREE.BoxGeometry(0.66, 0.08, 0.66),
+    new THREE.MeshStandardMaterial({ color: 0xf06ea0, roughness: 0.56, metalness: 0.08 })
+);
+specialGiftLid.position.set(0, 0.04, 0.31);
+specialGiftLid.castShadow = true;
+specialGiftLid.receiveShadow = true;
+specialGiftLidPivot.add(specialGiftLid);
+
+const specialLidRibbonX = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.1, 0.68), specialRibbonMat);
+specialLidRibbonX.position.set(0, 0.045, 0.31);
+specialGiftLidPivot.add(specialLidRibbonX);
+const specialLidRibbonZ = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.1, 0.11), specialRibbonMat);
+specialLidRibbonZ.position.set(0, 0.045, 0.31);
+specialGiftLidPivot.add(specialLidRibbonZ);
+
+const specialBowLeft = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.018, 10, 18), specialRibbonMat);
+specialBowLeft.rotation.x = Math.PI / 2;
+specialBowLeft.rotation.z = 0.6;
+specialBowLeft.position.set(-0.07, 0.11, 0.31);
+specialGiftLidPivot.add(specialBowLeft);
+const specialBowRight = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.018, 10, 18), specialRibbonMat);
+specialBowRight.rotation.x = Math.PI / 2;
+specialBowRight.rotation.z = -0.6;
+specialBowRight.position.set(0.07, 0.11, 0.31);
+specialGiftLidPivot.add(specialBowRight);
+
+specialGiftGroup.position.set(0.02, 0, 0.0);
+specialGiftGroup.rotation.y = 0.08;
+presentsCornerGroup.add(specialGiftGroup);
+
+presentsCornerGroup.position.set(-3.18, 0, -3.18);
+presentsCornerGroup.rotation.y = Math.PI / 4;
+scene.add(presentsCornerGroup);
+
+const tulipBouquetGroup = createTulipBouquet();
+tulipBouquetGroup.position.set(-0.02, 0.62, 0.26);
+tulipBouquetGroup.rotation.y = -0.42;
+bedGroup.add(tulipBouquetGroup);
 
 const easelGroup = new THREE.Group();
 const easelWoodMat = new THREE.MeshStandardMaterial({ color: 0x7c5a3e, roughness: 0.82 });
@@ -485,9 +804,58 @@ function createBannerTexture(text, w, h, isPennant) {
         ctx.fillStyle = bg; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(w, 0); ctx.lineTo(w/2, h); ctx.closePath(); ctx.fill();
         ctx.font = `bold ${h*0.4}px Arial, sans-serif`; ctx.fillStyle = fg; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, w/2, h*0.35);
     } else {
-        ctx.fillStyle = '#ffa6c9'; ctx.fillRect(0, 0, w, h);
-        ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 10; ctx.strokeRect(15, 15, w-30, h-30);
-        ctx.font = `bold ${h*0.4}px Georgia, serif`; ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, w/2, h/2);
+        ctx.clearRect(0, 0, w, h);
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.18)';
+        ctx.shadowBlur = 24;
+        ctx.fillStyle = '#b14d73';
+        ctx.beginPath();
+        ctx.moveTo(90, h * 0.28);
+        ctx.lineTo(18, h * 0.5);
+        ctx.lineTo(90, h * 0.72);
+        ctx.closePath();
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(w - 90, h * 0.28);
+        ctx.lineTo(w - 18, h * 0.5);
+        ctx.lineTo(w - 90, h * 0.72);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.shadowBlur = 0;
+        const gradient = ctx.createLinearGradient(0, 0, w, h);
+        gradient.addColorStop(0, '#d97aa1');
+        gradient.addColorStop(0.5, '#f3a6c0');
+        gradient.addColorStop(1, '#cf6e96');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(78, 34, w - 156, h - 68);
+
+        ctx.strokeStyle = '#f7d36a';
+        ctx.lineWidth = 12;
+        ctx.strokeRect(88, 44, w - 176, h - 88);
+
+        ctx.strokeStyle = 'rgba(255, 248, 225, 0.75)';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(110, 64, w - 220, h - 128);
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.16)';
+        ctx.fillRect(96, 50, w - 192, 28);
+
+        ctx.fillStyle = '#fff8ef';
+        ctx.font = `italic bold ${h * 0.34}px Georgia, serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, w / 2, h / 2 + 2);
+
+        ctx.font = `bold ${h * 0.08}px Arial, sans-serif`;
+        ctx.letterSpacing = '0.18em';
+        ctx.fillStyle = 'rgba(255, 243, 222, 0.9)';
+        ctx.fillText('COM MUITO CARINHO', w / 2, h * 0.24);
+
+        ctx.beginPath();
+        ctx.fillStyle = '#f7d36a';
+        ctx.arc(132, h / 2, 8, 0, Math.PI * 2);
+        ctx.arc(w - 132, h / 2, 8, 0, Math.PI * 2);
+        ctx.fill();
     }
     const tex = new THREE.CanvasTexture(canvas); tex.colorSpace = THREE.SRGBColorSpace; return tex;
 }
@@ -506,7 +874,7 @@ const stringGeo = new THREE.CylinderGeometry(0.005, 0.005, letters.length * spac
 const stringMesh = new THREE.Mesh(stringGeo, stringMat); stringMesh.rotation.z = Math.PI / 2; stringMesh.position.y = 0.3; yasminGroup.add(stringMesh);
 yasminGroup.position.set(0, 3.6, 3.9); yasminGroup.rotation.y = Math.PI; scene.add(yasminGroup);
 
-const hbTex = createBannerTexture("HAPPY BIRTHDAY", 1024, 256, false);
+const hbTex = createBannerTexture("Feliz Aniversario", 1024, 256, false);
 const hbMat = new THREE.MeshStandardMaterial({ map: hbTex, roughness: 0.8 });
 const hbMesh = new THREE.Mesh(new THREE.PlaneGeometry(3.0, 0.75), hbMat);
 hbMesh.position.set(0, 3.2, -3.95); scene.add(hbMesh);
@@ -533,7 +901,9 @@ heartShape.bezierCurveTo( 60, 77, 80, 55, 80, 35 );
 heartShape.bezierCurveTo( 80, 35, 80, 0, 50, 0 );
 heartShape.bezierCurveTo( 35, 0, 25, 25, 25, 25 );
 
-const foilExtrudeSettings = { depth: 10, bevelEnabled: true, bevelSegments: 16, steps: 2, bevelSize: 4, bevelThickness: 5 };
+const foilExtrudeSettings = isMobileDevice
+    ? { depth: 10, bevelEnabled: true, bevelSegments: 6, steps: 1, bevelSize: 4, bevelThickness: 5 }
+    : { depth: 10, bevelEnabled: true, bevelSegments: 16, steps: 2, bevelSize: 4, bevelThickness: 5 };
 const heartGeo = new THREE.ExtrudeGeometry( heartShape, foilExtrudeSettings );
 heartGeo.center(); heartGeo.rotateZ(Math.PI); heartGeo.scale(0.0055, 0.0055, 0.0055);
 
@@ -541,7 +911,7 @@ const kinematicBalloons = [];
 function createHeartBalloon(x, y, z, colorHex) {
     const bGroup = new THREE.Group();
     const bMesh = new THREE.Mesh(heartGeo, new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.15, metalness: 0.85 }));
-    bMesh.castShadow = true;
+    bMesh.castShadow = decorativeCastShadow;
     
     const heartTipOffset = 0.28; 
     const stringLength = y - heartTipOffset;
@@ -704,7 +1074,7 @@ function updateJoyVector(e) {
 
 let isDraggingCam = false; let yaw = 0; let pitch = 0; let lastTouchX = 0; let lastTouchY = 0; const lookSensitivity = 0.003;
 window.addEventListener('pointerdown', (e) => {
-    if (isCinematicIntro || e.target.closest('#virtual-joystick') || e.target.closest('#mobile-fullscreen-toggle') || e.target.closest('.isolated-module') || e.target.closest('.action-prompt') || e.target.closest('.tv-ctrl-btn') || e.target.closest('#lamp-switch')) return;
+    if (isCinematicIntro || e.target.closest('#virtual-joystick') || e.target.closest('#mobile-fullscreen-toggle') || e.target.closest('.isolated-module') || e.target.closest('.action-prompt') || e.target.closest('.tv-ctrl-btn') || e.target.closest('#lamp-switch') || e.target.closest('.floating-action-btn')) return;
     isDraggingCam = true; lastTouchX = e.clientX; lastTouchY = e.clientY;
 });
 window.addEventListener('pointermove', (e) => {
@@ -721,18 +1091,29 @@ window.addEventListener('pointerup', () => { isDraggingCam = false; }); window.a
 // ==========================================
 const roomDarkness = document.getElementById('room-darkness-overlay');
 const lampSwitch = document.getElementById('lamp-switch');
-const interactionPrompt = document.getElementById('interaction-prompt');
+const worldInteractionLayer = document.getElementById('world-interaction-layer');
 const moduleBook = document.getElementById('subsystem-book');
 const btnCloseBook = document.getElementById('close-book-module');
+const moduleLetter = document.getElementById('subsystem-letter');
+const btnCloseLetter = document.getElementById('close-letter-module');
 const modulePaint = document.getElementById('subsystem-paint');
 const btnClosePaint = document.getElementById('close-paint-module');
-const cursorReticle = document.getElementById('cursor-reticle');
 const tvPrompt = document.getElementById('tv-interaction-prompt');
 const btnTvPlay = document.getElementById('btn-tv-play');
 const btnTvMute = document.getElementById('btn-tv-mute');
 const paintBrushSizeInput = document.getElementById('paint-brush-size');
 const paintClearButton = document.getElementById('paint-clear');
+const paintDownloadButton = document.getElementById('paint-download');
 const paintColorButtons = document.querySelectorAll('.paint-color');
+const giftSurpriseOverlay = document.getElementById('gift-surprise-overlay');
+const giftPetalRain = document.getElementById('gift-petal-rain');
+const actionBookButton = document.getElementById('action-book');
+const actionLetterButton = document.getElementById('action-letter');
+const actionRadioButton = document.getElementById('action-radio');
+const actionGiftButton = document.getElementById('action-gift');
+const actionPaintButton = document.getElementById('action-paint');
+const actionCakeButton = document.getElementById('action-cake');
+const actionTvButton = document.getElementById('action-tv');
 
 function getFullscreenElement() { return document.fullscreenElement || document.webkitFullscreenElement || null; }
 function updateFullscreenButton() {
@@ -751,8 +1132,8 @@ async function toggleFullscreenMode(event) {
 }
 
 let isRoomLit = false; let activeModule = null; let isCinematicIntro = false;
-let isNearBook = false; let isNearTV = false; let isNearCake = false; let isNearRadio = false; let isNearPaint = false;
 let isLampOn = false; let isCelebrating = false;
+let isGiftOpened = false;
 let selectedPaintColor = '#1f4fbf';
 let selectedBrushSize = paintBrushSizeInput ? Number(paintBrushSizeInput.value) : 10;
 let isPainting = false;
@@ -771,7 +1152,6 @@ const cinematicLookTarget = new THREE.Vector3(0, 1.6, 0);
 function executeCinematicIntro() {
     isCinematicIntro = true;
     if(joyZone) joyZone.style.opacity = '0';
-    if(cursorReticle) cursorReticle.style.display = 'none';
     camera.position.copy(introPath.getPoint(0));
     
     const tl = gsap.timeline({
@@ -787,7 +1167,6 @@ function executeCinematicIntro() {
             yaw = euler.y; pitch = euler.x;
             player.position.set(camera.position.x, 0.8, camera.position.z);
             if(joyZone) joyZone.style.opacity = '1';
-            if(cursorReticle) cursorReticle.style.display = 'block';
         }
     });
 
@@ -810,6 +1189,7 @@ if (lampSwitch) {
             roomDarkness.style.opacity = '0'; 
             setTimeout(() => { roomDarkness.classList.add('lit'); }, 1500);
         }
+        requestShadowUpdate();
         gsap.to(lampSwitch, { opacity: 0, duration: 0.5, onComplete: () => { 
             lampSwitch.style.display = 'none'; 
             setTimeout(executeCinematicIntro, 500);
@@ -822,13 +1202,9 @@ if (lampSwitch) {
 syncTvMuteLabel();
 
 function triggerCelebration() {
-    if(!isNearCake || isCelebrating || isCinematicIntro) return;
+    if(isCelebrating || isCinematicIntro) return;
     isCelebrating = true; activeModule = 'celebration';
-    if(interactionPrompt) interactionPrompt.classList.remove('visible'); 
-    if(cursorReticle) cursorReticle.classList.remove('active');
     if(joyZone) joyZone.style.opacity = '0';
-
-    if(birthdayMusic.buffer) birthdayMusic.play();
 
     const tl = gsap.timeline();
     tl.to(ambientLight, { intensity: 0.05, duration: 1.5 });
@@ -851,7 +1227,7 @@ function triggerCelebration() {
         gsap.to(pointLight, { intensity: 7, duration: 2 });
         gsap.to(cakeLight, { intensity: 0, duration: 2 });
         gsap.to(camera.position, { x: player.position.x, y: 1.6, z: player.position.z, duration: 2, ease: "power2.inOut", onComplete: () => {
-            isCelebrating = false; activeModule = null; sparklerParticles.visible = false; birthdayMusic.stop();
+            isCelebrating = false; activeModule = null; sparklerParticles.visible = false;
             if(joyZone) joyZone.style.opacity = '1';
         }});
         gsap.to(camera.rotation, { x: pitch, y: yaw, z: 0, duration: 2, ease: "power2.inOut" });
@@ -859,8 +1235,8 @@ function triggerCelebration() {
 }
 
 function triggerInteraction() {
-    if(!isNearBook || activeModule === 'book' || isCinematicIntro) return;
-    activeModule = 'book'; isDraggingCam = false; interactionPrompt.classList.remove('visible'); cursorReticle.classList.remove('active');
+    if(activeModule === 'book' || isCinematicIntro) return;
+    activeModule = 'book'; isDraggingCam = false;
     if(joyZone) joyZone.style.opacity = '0';
     
     const targetPos = new THREE.Vector3(bookMesh.position.x + 1.2, 1.4, bookMesh.position.z);
@@ -872,12 +1248,30 @@ function triggerInteraction() {
         onComplete: () => { moduleBook.classList.add('active'); initStarParticles(); yaw = camera.rotation.y; pitch = camera.rotation.x; }
     });
 }
+function triggerLetterModule() {
+    if (activeModule === 'letter' || isCinematicIntro) return;
+    activeModule = 'letter';
+    isDraggingCam = false;
+    if (joyZone) joyZone.style.opacity = '0';
+
+    const letterFocus = letterGroup.getWorldPosition(new THREE.Vector3());
+    const targetPos = new THREE.Vector3(letterFocus.x + 0.78, 1.18, letterFocus.z + 0.12);
+    gsap.to(camera.position, { x: targetPos.x, y: targetPos.y, z: targetPos.z, duration: 1.15, ease: 'power3.inOut' });
+
+    const targetEuler = new THREE.Euler().setFromQuaternion(new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(targetPos, letterFocus, camera.up)), 'YXZ');
+    gsap.to(camera.rotation, {
+        x: targetEuler.x, y: targetEuler.y, z: targetEuler.z, duration: 1.15, ease: 'power3.inOut',
+        onComplete: () => {
+            if (moduleLetter) moduleLetter.classList.add('active');
+            yaw = camera.rotation.y;
+            pitch = camera.rotation.x;
+        }
+    });
+}
 function triggerPaintModule() {
-    if (!isNearPaint || activeModule === 'paint' || isCinematicIntro) return;
+    if (activeModule === 'paint' || isCinematicIntro) return;
     activeModule = 'paint';
     isDraggingCam = false;
-    if(interactionPrompt) interactionPrompt.classList.remove('visible');
-    if(cursorReticle) cursorReticle.classList.remove('active');
     if(joyZone) joyZone.style.opacity = '0';
 
     const targetPos = new THREE.Vector3(easelGroup.position.x - 1.0, 1.45, easelGroup.position.z + 0.18);
@@ -889,13 +1283,128 @@ function triggerPaintModule() {
         onComplete: () => { if (modulePaint) modulePaint.classList.add('active'); yaw = camera.rotation.y; pitch = camera.rotation.x; }
     });
 }
-if(interactionPrompt) interactionPrompt.addEventListener('click', () => { if(isNearBook) triggerInteraction(); if(isNearCake) triggerCelebration(); if(isNearPaint) triggerPaintModule(); });
-if(interactionPrompt) interactionPrompt.addEventListener('click', () => { if(isNearRadio) toggleRadioPlayback(); });
+function triggerGiftOpen() {
+    if (isGiftOpened || isCinematicIntro) return;
+    isGiftOpened = true;
+    gsap.to(specialGiftLidPivot.rotation, { x: -2.15, z: -0.18, duration: 1.1, ease: 'power3.out' });
+    gsap.to(specialGiftLidPivot.position, { x: -0.2, y: 0.46, z: -0.22, duration: 1.1, ease: 'power3.out' });
+    triggerGiftSurprise();
+}
+
+[
+    [actionBookButton, triggerInteraction],
+    [actionLetterButton, triggerLetterModule],
+    [actionRadioButton, toggleRadioPlayback],
+    [actionGiftButton, triggerGiftOpen],
+    [actionPaintButton, triggerPaintModule],
+    [actionCakeButton, triggerCelebration],
+    [actionTvButton, () => {
+        if (!tvPrompt) return;
+        tvPrompt.classList.toggle('visible');
+    }]
+].forEach(([button, handler]) => {
+    if (!button) return;
+    button.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        handler();
+    });
+    button.addEventListener('pointerdown', (event) => {
+        event.stopPropagation();
+    });
+});
+
+const projectedAnchor = new THREE.Vector3();
+function updateFloatingAction(button, object3D, offsetY = 0.6) {
+    if (!button || !object3D || !isRoomLit || activeModule !== null || isCinematicIntro) {
+        if (button) button.classList.remove('visible');
+        return;
+    }
+
+    object3D.getWorldPosition(projectedAnchor);
+    projectedAnchor.y += offsetY;
+    projectedAnchor.project(camera);
+
+    const isBehindCamera = projectedAnchor.z < -1 || projectedAnchor.z > 1;
+    const screenX = (projectedAnchor.x * 0.5 + 0.5) * window.innerWidth;
+    const screenY = (-projectedAnchor.y * 0.5 + 0.5) * window.innerHeight;
+    const outsideViewport = screenX < 30 || screenX > window.innerWidth - 30 || screenY < 40 || screenY > window.innerHeight - 30;
+
+    if (isBehindCamera || outsideViewport) {
+        button.classList.remove('visible');
+        return;
+    }
+
+    button.style.left = `${screenX}px`;
+    button.style.top = `${screenY}px`;
+    button.classList.add('visible');
+}
+
+function updateFloatingInteractionButtons() {
+    if (worldInteractionLayer) {
+        worldInteractionLayer.setAttribute('aria-hidden', (!isRoomLit || activeModule !== null || isCinematicIntro).toString());
+    }
+    updateFloatingAction(actionBookButton, bookMesh, 0.45);
+    updateFloatingAction(actionLetterButton, letterGroup, 0.32);
+    updateFloatingAction(actionRadioButton, radioGroup, 0.45);
+    updateFloatingAction(actionGiftButton, specialGiftGroup, 0.55);
+    updateFloatingAction(actionPaintButton, easelGroup, 1.55);
+    updateFloatingAction(actionCakeButton, cakeGroup, 0.95);
+    updateFloatingAction(actionTvButton, tvGroup, 2.45);
+
+    if (!tvPrompt || !isRoomLit || activeModule !== null || isCinematicIntro || !tvPrompt.classList.contains('visible')) {
+        if (tvPrompt) tvPrompt.classList.remove('visible');
+        return;
+    }
+
+    tvGroup.getWorldPosition(projectedAnchor);
+    projectedAnchor.y += 1.8;
+    projectedAnchor.project(camera);
+    const screenX = (projectedAnchor.x * 0.5 + 0.5) * window.innerWidth;
+    const screenY = (-projectedAnchor.y * 0.5 + 0.5) * window.innerHeight;
+    tvPrompt.style.left = `${screenX}px`;
+    tvPrompt.style.top = `${Math.max(72, screenY)}px`;
+    tvPrompt.style.bottom = 'auto';
+    tvPrompt.style.transform = 'translateX(-50%)';
+}
+
+function triggerGiftSurprise() {
+    if (!giftSurpriseOverlay || !giftPetalRain) return;
+    giftSurpriseOverlay.classList.remove('active');
+    giftPetalRain.innerHTML = '';
+    void giftSurpriseOverlay.offsetWidth;
+    giftSurpriseOverlay.classList.add('active');
+
+    const petalColors = ['#f3aac1', '#ffd0de', '#f5c1cf', '#ffe7ef', '#eaa0bc'];
+    for (let index = 0; index < 26; index += 1) {
+        const petal = document.createElement('span');
+        petal.className = 'gift-petal';
+        petal.style.left = `${Math.random() * 100}%`;
+        petal.style.background = petalColors[index % petalColors.length];
+        petal.style.animationDelay = `${Math.random() * 0.8}s`;
+        petal.style.setProperty('--petal-drift', `${(Math.random() - 0.5) * 180}px`);
+        petal.style.setProperty('--petal-duration', `${3.8 + Math.random() * 1.8}s`);
+        giftPetalRain.appendChild(petal);
+    }
+
+    window.clearTimeout(triggerGiftSurprise.timeoutId);
+    triggerGiftSurprise.timeoutId = window.setTimeout(() => {
+        giftSurpriseOverlay.classList.remove('active');
+        giftPetalRain.innerHTML = '';
+    }, 4200);
+}
 
 if(btnCloseBook) {
     btnCloseBook.addEventListener('click', () => {
         moduleBook.classList.remove('active');
         gsap.to(camera.position, { x: player.position.x, y: 1.6, z: player.position.z, duration: 1.5, ease: "power3.inOut", onComplete: () => { activeModule = null; if(joyZone) joyZone.style.opacity = '1'; } });
+    });
+}
+
+if (btnCloseLetter) {
+    btnCloseLetter.addEventListener('click', () => {
+        if (moduleLetter) moduleLetter.classList.remove('active');
+        gsap.to(camera.position, { x: player.position.x, y: 1.6, z: player.position.z, duration: 1.15, ease: 'power3.inOut', onComplete: () => { activeModule = null; if(joyZone) joyZone.style.opacity = '1'; } });
     });
 }
 
@@ -908,6 +1417,7 @@ if (btnClosePaint) {
 }
 
 if (paintBrushSizeInput) {
+    updateFloatingAction(actionLetterButton, letterGroup, 0.32);
     paintBrushSizeInput.addEventListener('input', () => {
         selectedBrushSize = Number(paintBrushSizeInput.value);
     });
@@ -926,6 +1436,15 @@ if (paintClearButton && paintCanvasElement && paintContext) {
         paintContext.fillStyle = '#fffdf8';
         paintContext.fillRect(0, 0, paintCanvasElement.width, paintCanvasElement.height);
         if (paintCanvasTexture) paintCanvasTexture.needsUpdate = true;
+    });
+}
+
+if (paintDownloadButton && paintCanvasElement) {
+    paintDownloadButton.addEventListener('click', () => {
+        const downloadLink = document.createElement('a');
+        downloadLink.href = paintCanvasElement.toDataURL('image/png');
+        downloadLink.download = 'arte-yasmin.png';
+        downloadLink.click();
     });
 }
 
@@ -981,23 +1500,28 @@ document.addEventListener('fullscreenchange', updateFullscreenButton);
 document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
 updateFullscreenButton();
 
+const lastCameraPosition = new THREE.Vector3();
+const lastCameraQuaternion = new THREE.Quaternion();
+let lastUiSignature = '';
+let floatingButtonsNeedUpdate = true;
+
 window.addEventListener('keydown', (e) => { 
     const k = e.key.toLowerCase();
     if (isRoomLit && activeModule === null && !isCinematicIntro) {
-        if(k === 'e' && isNearBook) triggerInteraction(); 
-        if(k === 'c' && isNearCake) triggerCelebration(); 
-        if(k === 'e' && isNearPaint) triggerPaintModule();
+        if(k === 'c') triggerCelebration(); 
         if(k === 'l') {
             isLampOn = !isLampOn;
             gsap.to(lampLight, { intensity: isLampOn ? 5.6 : 0, duration: 0.3 });
             gsap.to(lampShadeMat, { emissiveIntensity: isLampOn ? 1.15 : 0, duration: 0.3 });
+            floatingButtonsNeedUpdate = true;
+            requestShadowUpdate();
         }
     }
-    if (isNearTV && activeModule === null && videoElement) {
+    if (isRoomLit && activeModule === null && videoElement) {
         if (k === 'p') { if (videoElement.paused) requestTvPlayback(); else videoElement.pause(); }
         if (k === 'm') { videoElement.muted = !videoElement.muted; syncTvMuteLabel(); }
     }
-    if (isNearRadio && activeModule === null && k === 'r') {
+    if (isRoomLit && activeModule === null && k === 'r') {
         toggleRadioPlayback();
     }
 });
@@ -1007,11 +1531,23 @@ window.addEventListener('keydown', (e) => {
 // ==========================================
 const clock = new THREE.Clock();
 const moveDirection = new THREE.Vector3(); const forward = new THREE.Vector3(); const right = new THREE.Vector3();
+const previousPlayerPosition = new THREE.Vector3();
+
+function refreshFloatingButtonsIfNeeded() {
+    const uiSignature = `${isRoomLit}-${activeModule ?? 'none'}-${isCinematicIntro}-${tvPrompt?.classList.contains('visible') ? 'tv-open' : 'tv-closed'}`;
+    const cameraMoved = lastCameraPosition.distanceToSquared(camera.position) > 0.000001 || 1 - Math.abs(lastCameraQuaternion.dot(camera.quaternion)) > 0.000001;
+    if (!floatingButtonsNeedUpdate && !cameraMoved && uiSignature === lastUiSignature) return;
+
+    updateFloatingInteractionButtons();
+    lastCameraPosition.copy(camera.position);
+    lastCameraQuaternion.copy(camera.quaternion);
+    lastUiSignature = uiSignature;
+    floatingButtonsNeedUpdate = false;
+}
 
 function animate() {
     requestAnimationFrame(animate);
     const time = clock.getElapsedTime();
-    tvScreenMat.needsUpdate = false;
     if (!isMobileDevice) { candleLights.forEach((light, index) => { light.intensity = 0.95 + Math.sin(time * 8 + index * 1.4) * 0.2; }); }
     
     bookMesh.position.y = 0.75 + Math.sin(time * 3) * 0.05;
@@ -1034,14 +1570,26 @@ function animate() {
         if(keys.w) moveForward += 1; if(keys.s) moveForward -= 1; if(keys.a) moveRight -= 1; if(keys.d) moveRight += 1;
         if(joyActive) { moveRight += joyVector.x; moveForward -= joyVector.y; }
 
+        previousPlayerPosition.copy(player.position);
+
         if (moveForward !== 0 || moveRight !== 0) {
             moveDirection.set(moveRight, 0, moveForward).normalize().multiplyScalar(playerSpeed);
             camera.getWorldDirection(forward); forward.y = 0; forward.normalize(); right.crossVectors(forward, camera.up).normalize(); 
             player.position.addScaledVector(right, moveDirection.x); player.position.addScaledVector(forward, moveDirection.z);
+            floatingButtonsNeedUpdate = true;
         }
 
         player.position.x = Math.max(-3.0, Math.min(3.0, player.position.x)); player.position.z = Math.max(-3.0, Math.min(3.5, player.position.z));
         if (player.position.z > 1.6 && player.position.x > -0.8 && player.position.x < 0.8) { player.position.z = 1.6; }
+
+        const wardrobeMinX = wardrobeGroup.position.x - (wWidth / 2) - 0.18;
+        const wardrobeMaxX = wardrobeGroup.position.x + (wWidth / 2) + 0.18;
+        const wardrobeMinZ = wardrobeGroup.position.z - (wDepth / 2) - 0.12;
+        const wardrobeMaxZ = wardrobeGroup.position.z + (wDepth / 2) + 0.12;
+        const insideWardrobe = player.position.x >= wardrobeMinX && player.position.x <= wardrobeMaxX && player.position.z >= wardrobeMinZ && player.position.z <= wardrobeMaxZ;
+        if (insideWardrobe) {
+            player.position.copy(previousPlayerPosition);
+        }
 
         const tMinX = 2.2; const tMaxZ = 1.4; const tMinZ = -1.4; 
         if (player.position.x > tMinX && player.position.z > tMinZ && player.position.z < tMaxZ) {
@@ -1052,57 +1600,9 @@ function animate() {
         
         camera.position.set(player.position.x, 1.6, player.position.z); 
         camera.rotation.set(pitch, yaw, 0, 'YXZ');
-
-        const distToBook = player.position.distanceTo(shelf.position);
-        const distToTable = player.position.distanceTo(partyTableGroup.position);
-        const distToRadio = player.position.distanceTo(bedsideTableGroup.position);
-        const distToPaint = player.position.distanceTo(easelGroup.position);
-
-        if (distToBook <= interactionRadius) {
-            isNearCake = false; isNearRadio = false; isNearPaint = false;
-            if (!isNearBook) { 
-                isNearBook = true; 
-                if(interactionPrompt) { interactionPrompt.innerHTML = "PRESSIONE [ E ] PARA LER | [ L ] ABAJUR"; interactionPrompt.classList.add('visible'); }
-                if(cursorReticle) cursorReticle.classList.add('active'); 
-                gsap.to(coverMat, { emissiveIntensity: 1.5, duration: 0.3 }); 
-            }
-        } else if (distToRadio <= 0.95) {
-            isNearBook = false; isNearCake = false; isNearPaint = false;
-            gsap.to(coverMat, { emissiveIntensity: 0.2, duration: 0.3 });
-            if (!isNearRadio) {
-                isNearRadio = true;
-                if(interactionPrompt) {
-                    interactionPrompt.innerHTML = radioAudioElement && !radioAudioElement.paused ? "PRESSIONE [ R ] PARA DESLIGAR O RÁDIO" : "PRESSIONE [ R ] PARA LIGAR O RÁDIO";
-                    interactionPrompt.classList.add('visible');
-                }
-                if(cursorReticle) cursorReticle.classList.add('active');
-            } else if (interactionPrompt) {
-                interactionPrompt.innerHTML = radioAudioElement && !radioAudioElement.paused ? "PRESSIONE [ R ] PARA DESLIGAR O RÁDIO" : "PRESSIONE [ R ] PARA LIGAR O RÁDIO";
-            }
-        } else if (distToPaint <= 1.25) {
-            isNearBook = false; isNearCake = false; isNearRadio = false;
-            gsap.to(coverMat, { emissiveIntensity: 0.2, duration: 0.3 });
-            if (!isNearPaint) {
-                isNearPaint = true;
-                if (interactionPrompt) { interactionPrompt.innerHTML = "PRESSIONE [ E ] PARA PINTAR"; interactionPrompt.classList.add('visible'); }
-                if (cursorReticle) cursorReticle.classList.add('active');
-            }
-        } else if (distToTable <= interactionRadius + 0.5) {
-            isNearBook = false; isNearRadio = false; isNearPaint = false;
-            if (!isNearCake) {
-                isNearCake = true;
-                if(interactionPrompt) { interactionPrompt.innerHTML = "PRESSIONE [ C ] PARA CANTAR PARABÉNS"; interactionPrompt.classList.add('visible'); }
-                if(cursorReticle) cursorReticle.classList.add('active'); 
-            }
-        } else {
-            if (isNearBook || isNearCake || isNearRadio || isNearPaint) { 
-                isNearBook = false; isNearCake = false; isNearRadio = false; isNearPaint = false;
-                if(interactionPrompt) interactionPrompt.classList.remove('visible'); 
-                if(cursorReticle) cursorReticle.classList.remove('active'); 
-                gsap.to(coverMat, { emissiveIntensity: 0.2, duration: 0.3 }); 
-            }
-        }
     }
+
+    refreshFloatingButtonsIfNeeded();
     renderer.render(scene, camera);
 }
 animate();
@@ -1111,7 +1611,8 @@ window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxPixelRatio));
+    requestShadowUpdate();
 });
 
 // ==========================================

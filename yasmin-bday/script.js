@@ -22,7 +22,7 @@ const canvas = document.getElementById('webgl-canvas');
 const paintCanvasElement = document.getElementById('paint-canvas');
 const paintContext = paintCanvasElement ? paintCanvasElement.getContext('2d') : null;
 // Usando MSAA nativo da GPU para suavizar as bordas de graça (muito mais barato que aumentar Resolução Raw)
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: !isMobileDevice, powerPreference: 'high-performance' });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: !isMobileDevice, powerPreference: 'high-performance', stencil: false, depth: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxPixelRatio));
 
@@ -31,7 +31,8 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.shadowMap.autoUpdate = false;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.0;
+// Aumentar levemente a percepção de contraste do ACES para algo mais cinematográfico sem custo ("grátis")
+renderer.toneMappingExposure = 1.15;
 
 function requestShadowUpdate() {
     if (!renderer.shadowMap.enabled) return;

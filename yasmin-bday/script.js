@@ -14,7 +14,8 @@ import gsap from 'gsap';
 const isMobileDevice = window.matchMedia('(pointer: coarse), (max-width: 900px)').matches;
 const textureSize = isMobileDevice ? 512 : 1024;
 const textureAnisotropy = isMobileDevice ? 2 : 4;
-const maxPixelRatio = isMobileDevice ? 1 : 1.5;
+// Se o dispositivo já tem MSAA ligado (!isMobileDevice), ou se a tela for gigante, podemos limitar a densidade de pixels para poupar até 60% da carga da placa de vídeo sem perder qualidade visual.
+const maxPixelRatio = isMobileDevice ? 1 : (window.innerWidth > 1600 ? 1 : 1.25);
 const decorativeCastShadow = !isMobileDevice;
 
 const canvas = document.getElementById('webgl-canvas');
@@ -1372,8 +1373,8 @@ function updateFloatingAction(button, object3D, offsetY = 0.6) {
         return;
     }
 
-    button.style.left = `${screenX}px`;
-    button.style.top = `${screenY}px`;
+    button.style.setProperty('--tx', `${screenX}px`);
+    button.style.setProperty('--ty', `${screenY}px`);
     button.classList.add('visible');
 }
 
@@ -1399,10 +1400,8 @@ function updateFloatingInteractionButtons() {
     projectedAnchor.project(camera);
     const screenX = (projectedAnchor.x * 0.5 + 0.5) * window.innerWidth;
     const screenY = (-projectedAnchor.y * 0.5 + 0.5) * window.innerHeight;
-    tvPrompt.style.left = `${screenX}px`;
-    tvPrompt.style.top = `${Math.max(72, screenY)}px`;
-    tvPrompt.style.bottom = 'auto';
-    tvPrompt.style.transform = 'translateX(-50%)';
+    tvPrompt.style.setProperty('--tx', `${screenX}px`);
+    tvPrompt.style.setProperty('--ty', `${Math.max(72, screenY)}px`);
 }
 
 function triggerGiftSurprise() {
@@ -1655,7 +1654,8 @@ window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxPixelRatio));
+    const dynamicMaxRatio = isMobileDevice ? 1 : (window.innerWidth > 1600 ? 1 : 1.25);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, dynamicMaxRatio));
     requestShadowUpdate();
 });
 

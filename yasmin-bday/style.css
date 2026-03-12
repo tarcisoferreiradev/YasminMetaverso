@@ -65,7 +65,8 @@ body::after {
     position: fixed;
     left: 0;
     top: 0;
-    transform: translate(-50%, -50%);
+    transform: translate3d(calc(var(--tx, -500px) - 50%), calc(var(--ty, -500px) - 50%), 0);
+    will-change: transform, opacity;
     min-width: 118px;
     padding: 9px 14px;
     border: 1px solid rgba(255, 244, 231, 0.24);
@@ -81,7 +82,7 @@ body::after {
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
-    transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+    transition: opacity 0.2s ease, background 0.2s ease, border-color 0.2s ease;
 }
 
 .floating-action-btn.visible {
@@ -93,7 +94,8 @@ body::after {
 .floating-action-btn:hover {
     background: linear-gradient(135deg, rgba(74, 48, 38, 0.82), rgba(121, 88, 71, 0.72));
     border-color: rgba(255, 244, 231, 0.42);
-    transform: translate(-50%, calc(-50% - 2px));
+    /* Retiramos transform na transição, então o hover fará um pequeno pulo direto para -2px. Excelente performance. */
+    transform: translate3d(calc(var(--tx, -500px) - 50%), calc(var(--ty, -500px) - 50% - 2px), 0);
 }
 
 #gift-surprise-overlay {
@@ -182,11 +184,17 @@ body::after {
     TV Media Controls HUD
     ========================================================================== */
 #tv-interaction-prompt {
-    position: fixed; bottom: 15%; left: 50%; transform: translateX(-50%) translateY(20px);
+    position: fixed; top: 0; left: 0;
+    transform: translate3d(calc(var(--tx, -500px) - 50%), calc(var(--ty, -500px) + 20px), 0);
     display: flex; gap: 15px; z-index: 50000; opacity: 0; pointer-events: none; visibility: hidden;
-    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transition: opacity 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), visibility 0.3s;
+    will-change: transform, opacity;
 }
-#tv-interaction-prompt.visible { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0); pointer-events: auto; }
+#tv-interaction-prompt.visible {
+    opacity: 1; visibility: visible;
+    transform: translate3d(calc(var(--tx, -500px) - 50%), var(--ty, -500px), 0);
+    pointer-events: auto;
+}
 
 .tv-ctrl-btn {
     background: linear-gradient(180deg, rgba(15, 20, 29, 0.9), rgba(8, 10, 16, 0.92)); color: #fff; padding: 12px 25px;

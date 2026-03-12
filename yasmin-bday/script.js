@@ -1060,9 +1060,20 @@ scene.add(player);
 const playerSpeed = 0.06; 
 const interactionRadius = 2.2; 
 
-const keys = { w: false, a: false, s: false, d: false };
-window.addEventListener('keydown', (e) => { const key = e.key.toLowerCase(); if(keys.hasOwnProperty(key)) keys[key] = true; });
-window.addEventListener('keyup', (e) => { const key = e.key.toLowerCase(); if(keys.hasOwnProperty(key)) keys[key] = false; });
+const keys = { w: false, a: false, s: false, d: false, arrowup: false, arrowdown: false, arrowleft: false, arrowright: false };
+
+window.addEventListener('keydown', (e) => { 
+    const key = e.key.toLowerCase(); 
+    // Evitar que o navegador (seja com extensões focadas, 'search-as-you-type' ou scroll nativo) "roube" as teclas de movimento
+    if (activeModule === null && !isCinematicIntro && keys.hasOwnProperty(key)) {
+        e.preventDefault();
+    }
+    if (keys.hasOwnProperty(key)) keys[key] = true; 
+});
+window.addEventListener('keyup', (e) => { 
+    const key = e.key.toLowerCase(); 
+    if(keys.hasOwnProperty(key)) keys[key] = false; 
+});
 
 const joyZone = document.getElementById('virtual-joystick'); const joyBase = document.getElementById('joy-base'); const joyStick = document.getElementById('joy-stick'); const mobileFullscreenToggle = document.getElementById('mobile-fullscreen-toggle');
 let joyActive = false; const joyVector = new THREE.Vector2(0, 0); 
@@ -1588,7 +1599,10 @@ function animate() {
 
     if (isRoomLit && activeModule === null && !isCinematicIntro) {
         let moveForward = 0; let moveRight = 0;
-        if(keys.w) moveForward += 1; if(keys.s) moveForward -= 1; if(keys.a) moveRight -= 1; if(keys.d) moveRight += 1;
+        if(keys.w || keys.arrowup) moveForward += 1; 
+        if(keys.s || keys.arrowdown) moveForward -= 1; 
+        if(keys.a || keys.arrowleft) moveRight -= 1; 
+        if(keys.d || keys.arrowright) moveRight += 1;
         if(joyActive) { moveRight += joyVector.x; moveForward -= joyVector.y; }
 
         previousPlayerPosition.copy(player.position);

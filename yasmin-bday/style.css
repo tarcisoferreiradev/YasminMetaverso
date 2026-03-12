@@ -487,12 +487,12 @@ body::after {
 .book-spine { position: absolute; left: 0; top: 0; bottom: 0; width: 25px; background: linear-gradient(to right, #1f120b 0%, #2a170f 55%, #4a2d1d 100%); box-shadow: inset -5px 0 15px rgba(0,0,0,0.4); transform: translateX(-20px) rotateY(-95deg); transform-origin: right; border-radius: 4px 0 0 4px; z-index: 3; }
 .book-cover-wrapper::after { content: ''; position: absolute; top: 5px; bottom: 5px; right: 5px; width: 100%; background-color: var(--pagina-stack); background-image: repeating-linear-gradient(transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px); border-right: 4px solid var(--borda-ouro); border-radius: 0 10px 10px 0; transform: translateZ(-5px) translateX(-5px) rotateY(1deg); z-index: 1; }
 
-.content { width: min(82vw, 370px); height: min(74vh, 530px); background-color: var(--pagina-stack); background-image: linear-gradient(90deg, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.02) 8%, transparent 15%), url('https://www.transparenttextures.com/patterns/paper-fibers.png'); border-radius: 4px 12px 12px 4px; box-shadow: inset 15px 0 20px -10px rgba(0,0,0,0.15), 15px 15px 40px rgba(0,0,0,0.5); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 25px; gap: 15px; opacity: 0; transform: rotateY(15deg) translateX(30px); transform-origin: left center; transition: opacity 0.8s ease, transform 0.8s var(--anim-curve); pointer-events: none; cursor: pointer; position: relative; }
+.content { width: min(82vw, 370px); height: min(74vh, 530px); background-color: var(--pagina-stack); background-image: linear-gradient(90deg, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.02) 8%, transparent 15%), url('https://www.transparenttextures.com/patterns/paper-fibers.png'); border-radius: 4px 12px 12px 4px; box-shadow: inset 15px 0 20px -10px rgba(0,0,0,0.15), 15px 15px 40px rgba(0,0,0,0.5); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 25px; gap: 15px; overflow: hidden; opacity: 0; transform: rotateY(15deg) translateX(30px); transform-origin: left center; transition: opacity 0.8s ease, transform 0.8s var(--anim-curve); pointer-events: none; cursor: pointer; position: relative; }
 .page.active .content { opacity: 1; transform: rotateY(0deg) translateX(0); pointer-events: auto; }
 
 .content.editorial-layout { padding: 45px 30px; justify-content: center; }
 .photo-wrapper { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; margin: 0 auto; width: 100%; }
-.editorial-layout .photo-frame { width: min(55vw, 190px); aspect-ratio: 4 / 5; border: 8px solid #ffffff; border-bottom-width: 25px; box-shadow: 0 6px 15px rgba(0,0,0,0.2); border-radius: 2px; margin: 0 auto; position: relative; transition: transform 0.3s ease, box-shadow 0.3s ease; }
+.editorial-layout .photo-frame { width: min(55vw, 190px); aspect-ratio: 4 / 5; max-height: min(35vh, 230px); border: 8px solid #ffffff; border-bottom-width: 25px; box-shadow: 0 6px 15px rgba(0,0,0,0.2); border-radius: 2px; margin: 0 auto; position: relative; overflow: hidden; transition: transform 0.3s ease, box-shadow 0.3s ease; background-size: cover; background-position: center; }
 .chapter-eyes-layout {
     justify-content: flex-start;
     padding: 18px 24px 34px;
@@ -614,7 +614,7 @@ body::after {
 .magic-text.verse { margin-bottom: 15px; }
 .editorial-layout .magic-text { font-weight: 400; color: var(--texto-escuro); }
 .editorial-layout .magic-text:first-of-type::first-letter { font-size: 2.2em; font-style: normal; color: #8b6d43; line-height: 0.8; float: left; margin-right: 6px; margin-top: 4px; text-shadow: none; }
-.photo-frame { width: min(60vw, 220px); aspect-ratio: 3 / 4; background-size: cover; background-position: center; border: 8px solid #ffffff; box-shadow: 0 6px 15px rgba(0,0,0,0.2); margin: 0 auto 15px auto; border-radius: 2px; }
+.photo-frame { width: min(60vw, 220px); aspect-ratio: 3 / 4; max-height: min(38vh, 250px); background-size: cover; background-position: center; border: 8px solid #ffffff; box-shadow: 0 6px 15px rgba(0,0,0,0.2); margin: 0 auto 15px auto; border-radius: 2px; overflow: hidden; }
 
 /* ==========================================================================
    GALAXY MAP ENGINE
@@ -644,6 +644,10 @@ body::after {
    ========================================================================== */
 @media (max-width: 767px) {
     .book-cover-wrapper, .content { width: min(86vw, 350px); height: min(70vh, 500px); }
+    .content.editorial-layout { padding: 26px 20px; gap: 10px; }
+    .editorial-layout .photo-frame { width: min(48vw, 168px); max-height: min(28vh, 190px); border-width: 6px; border-bottom-width: 18px; }
+    .photo-frame { width: min(52vw, 182px); max-height: min(30vh, 200px); border-width: 6px; }
+    .chapter-eyes-photo { width: min(32vw, 112px); max-height: min(24vh, 145px); }
     .letter-shell { inset: 82px 10px 16px; }
     .letter-card { width: 100%; max-height: 82vh; padding: 22px 18px 24px; border-radius: 24px; }
     .letter-body p { line-height: 1.78; }

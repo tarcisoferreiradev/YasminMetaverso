@@ -255,9 +255,9 @@ body::after {
     position: fixed; inset: 0; z-index: 999999; background:
     radial-gradient(circle at center, rgba(38, 25, 21, 0.42) 0%, rgba(11, 8, 10, 0.9) 42%, rgba(3, 3, 5, 0.985) 100%);
     display: flex; align-items: flex-start; justify-content: center;
-    backdrop-filter: blur(12px); transition: opacity 2.5s ease-in-out, background-color 1s ease, backdrop-filter 2s ease;
+    backdrop-filter: blur(12px); transition: opacity 2.5s ease-in-out, background-color 1s ease;
 }
-#room-darkness-overlay.lit { opacity: 0; pointer-events: none; backdrop-filter: blur(0px); }
+#room-darkness-overlay.lit { opacity: 0; pointer-events: none; }
 
 .lamp-switch-wrapper { display: flex; flex-direction: column; align-items: center; cursor: pointer; transform-origin: top center; animation: subtleSwing 4s ease-in-out infinite alternate; padding: 0 40px 40px 40px; }
 .pull-cord { width: 2px; height: 180px; background: linear-gradient(to bottom, #dfaba0 0%, #c5a059 100%); box-shadow: 0 0 10px rgba(223, 171, 160, 0.5); transition: height 0.2s ease; }

@@ -338,7 +338,7 @@ const radioPlaylist = [
     './yasmin-bday/musicas/Djavan - Encontrar-Te.mp3',
     './yasmin-bday/musicas/Djavan - Pétala.mp3',
     './yasmin-bday/musicas/Djavan - Ventos do Norte.mp3'
-];
+].map(path => encodeURI(path));
 let currentRadioTrackIndex = 0;
 
 function loadRadioTrack(trackIndex) {
@@ -421,6 +421,9 @@ function syncTvMuteLabel() {
 }
 
 function toggleRadioPlayback() {
+    if (audioListener.context.state === 'suspended') {
+        audioListener.context.resume();
+    }
     if (!radioAudioElement || radioPlaylist.length === 0) return;
 
     if (radioAudioElement.paused) {
@@ -438,6 +441,9 @@ function toggleRadioPlayback() {
  }
 
 function requestTvPlayback() {
+    if (audioListener.context.state === 'suspended') {
+        audioListener.context.resume();
+    }
     if (!videoElement) return;
     const playPromise = videoElement.play();
     if (playPromise && typeof playPromise.catch === 'function') {
@@ -1167,6 +1173,9 @@ function executeCinematicIntro() {
             yaw = euler.y; pitch = euler.x;
             player.position.set(camera.position.x, 0.8, camera.position.z);
             if(joyZone) joyZone.style.opacity = '1';
+            
+            // Inicia o vídeo só após a cinemática para evitar travamentos de carregamento da textura de vídeo na GPU
+            requestTvPlayback();
         }
     });
 
@@ -1180,14 +1189,21 @@ function executeCinematicIntro() {
 if (lampSwitch) {
     const triggerRoomLight = (e) => {
         if (e) { e.preventDefault(); e.stopPropagation(); } 
+        
+        // Retoma o contexto de áudio em caso de bloqueio do navegador
+        if (audioListener && audioListener.context.state === 'suspended') {
+            audioListener.context.resume();
+        }
+
         if (isRoomLit) return;
         isRoomLit = true; 
-        requestTvPlayback();
+        
         gsap.to(ambientLight, { intensity: 0.52, duration: 1.5 }); 
         gsap.to(pointLight, { intensity: 7, duration: 1.5 });
         if(roomDarkness) {
             roomDarkness.style.opacity = '0'; 
             setTimeout(() => { roomDarkness.classList.add('lit'); }, 1500);
+            setTimeout(() => { roomDarkness.style.display = 'none'; }, 2600);
         }
         requestShadowUpdate();
         gsap.to(lampSwitch, { opacity: 0, duration: 0.5, onComplete: () => { 
@@ -1605,6 +1621,7 @@ function animate() {
     refreshFloatingButtonsIfNeeded();
     renderer.render(scene, camera);
 }
+renderer.compile(scene, camera);
 animate();
 
 window.addEventListener('resize', () => {

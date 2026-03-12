@@ -45,6 +45,8 @@ scene.fog = new THREE.FogExp2(0x141924, 0.016);
 
 const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100); 
 camera.rotation.order = 'YXZ'; 
+camera.position.set(0, 1.6, 3.5);
+camera.lookAt(0, 1.6, 0);
 
 const audioListener = new THREE.AudioListener();
 camera.add(audioListener);
@@ -61,7 +63,7 @@ if (paintCanvasElement && paintContext) {
 // 2. AUDIO SYSTEM & ILLUMINATION
 // ==========================================
 // Substituindo luz ambiente opaca por HemisphereLight (custo zero, mais realista adicionando "rebatimento" de cor do piso e teto)
-const ambientLight = new THREE.HemisphereLight(0xfff5e6, 0x1c1924, 0); 
+const ambientLight = new THREE.HemisphereLight(0xfff5e6, 0x1c1924, 0.08); // começa em 0.08 para simular quarto escuro visível
 scene.add(ambientLight);
 
 const pointLight = new THREE.PointLight(0xffeedd, 0, 15); 

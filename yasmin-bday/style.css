@@ -14,7 +14,27 @@
     --overlay-alpha: rgba(0, 0, 0, 0.2);
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+}
+
+*:focus,
+*:focus-visible {
+    outline: none;
+}
+
+::selection {
+    background: transparent;
+    color: inherit;
+}
+
+::-moz-selection {
+    background: transparent;
+    color: inherit;
+}
 
 body, html {
     width: 100vw; height: 100vh; color: var(--texto-claro); font-family: 'Lora', serif;
@@ -22,7 +42,7 @@ body, html {
     radial-gradient(circle at 20% 15%, rgba(255, 199, 132, 0.12), transparent 28%),
     radial-gradient(circle at 82% 18%, rgba(122, 168, 255, 0.14), transparent 32%),
     linear-gradient(180deg, #151922 0%, #090b11 100%);
-    user-select: none; -webkit-user-select: none; touch-action: none;
+    user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: none;
     cursor: grab; 
 }
 body:active { cursor: grabbing; }

@@ -216,7 +216,7 @@ body::after {
     position: fixed;
     right: 20px;
     bottom: 38px;
-    z-index: 50000;
+    z-index: 1000001;
     display: none;
     min-width: 132px;
     padding: 13px 18px;
